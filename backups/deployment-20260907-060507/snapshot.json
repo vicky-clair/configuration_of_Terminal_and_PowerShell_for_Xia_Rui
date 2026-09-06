@@ -1,0 +1,22 @@
+[
+  {
+    "Source": "C:\\Users\\xasr2\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1",
+    "Backup": "C:\\XMWJJ\\powershelldome\\backups\\deployment-20260907-060507\\PowerShell7-profile.before.ps1",
+    "SHA256": "55D08956917C85C3FDDCA7BF407527EEE957A6CBFAD47579B82C61460B05D6F0"
+  },
+  {
+    "Source": "C:\\Users\\xasr2\\AppData\\Local\\Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json",
+    "Backup": "C:\\XMWJJ\\powershelldome\\backups\\deployment-20260907-060507\\Terminal-stable.before.json",
+    "SHA256": "834B8D8EFDFA26179B812DBE0CDD4AC2F9323378891C3E37EF5C47A8E6067842"
+  },
+  {
+    "Source": "C:\\Users\\xasr2\\Documents\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1",
+    "Backup": "C:\\XMWJJ\\powershelldome\\backups\\deployment-20260907-060507\\WindowsPowerShell51-profile.untouched.ps1",
+    "SHA256": "9D04B52CE65C2B9AA6A085C5843EE89F7D0E0BF51D822073A809827E50862345"
+  },
+  {
+    "Source": "C:\\Users\\xasr2\\AppData\\Local\\Packages\\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\\LocalState\\settings.json",
+    "Backup": "C:\\XMWJJ\\powershelldome\\backups\\deployment-20260907-060507\\Terminal-preview.untouched.json",
+    "SHA256": "6732EE589E71B558B2F63C0EE94EDE2A64C3D29675175F49CEBF0C62DEBEF014"
+  }
+]
