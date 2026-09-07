@@ -4,10 +4,12 @@ $snapshotRoot = Join-Path $projectRoot 'backups\deployment-20260907-060507'
 $testRoot = Join-Path $PSScriptRoot ('deployment-test-' + [guid]::NewGuid().ToString('N'))
 $savedUserProfile = $env:USERPROFILE
 $savedLocalAppData = $env:LOCALAPPDATA
+$savedDocuments = $env:TERMINAL_SETUP_DOCUMENTS
 try {
     # Exercise the real apply/rollback logic against isolated terminal fixtures.
     $env:USERPROFILE = Join-Path $testRoot 'user'
     $env:LOCALAPPDATA = Join-Path $testRoot 'local'
+    $env:TERMINAL_SETUP_DOCUMENTS = Join-Path $env:USERPROFILE 'Documents'
     $fixtureSnapshots = Join-Path $testRoot 'snapshots'
     New-Item -ItemType Directory -Path $fixtureSnapshots -Force | Out-Null
     $manifest = Get-Content -LiteralPath (Join-Path $snapshotRoot 'deployment.json') -Raw | ConvertFrom-Json
@@ -65,6 +67,7 @@ try {
 } finally {
     $env:USERPROFILE = $savedUserProfile
     $env:LOCALAPPDATA = $savedLocalAppData
+    $env:TERMINAL_SETUP_DOCUMENTS = $savedDocuments
     $cleanupTarget = [System.IO.Path]::GetFullPath($testRoot)
     $allowedParent = [System.IO.Path]::GetFullPath($PSScriptRoot) + [System.IO.Path]::DirectorySeparatorChar
     if (-not $cleanupTarget.StartsWith($allowedParent, [System.StringComparison]::OrdinalIgnoreCase)) {

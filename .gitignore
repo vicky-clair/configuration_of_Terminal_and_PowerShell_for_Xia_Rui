@@ -1,6 +1,7 @@
 # Local machine state pointers
 .deployment-path
 .last-install-backup
+.last-cmd-backup
 
 # Ephemeral runtime backups
 backups/install-backup-*

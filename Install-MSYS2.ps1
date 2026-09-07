@@ -13,7 +13,8 @@
 param(
     [switch]$NonInteractive,
     [switch]$SkipBackup,
-    [string]$Msys2InstallPath = 'C:\msys64'
+    [string]$Msys2InstallPath,
+    [string]$ParentSnapshot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -27,16 +28,11 @@ Write-Host "============================================================" -Foreg
 # 1. 跨平台环境初始化
 Initialize-SetupEnvironment
 
-# 2. 全自动前置统合备份
-if (-not $SkipBackup) {
-    $null = Backup-AllTerminalConfigurations
-}
-
 # 3. 检查或安装 MSYS2
 Write-Host "`n[1/3] 检查并定位 MSYS2 安装环境..." -ForegroundColor Yellow
 
 $msys2Candidates = @(
-    $Msys2InstallPath,
+    (Resolve-TerminalMsysRoot $Msys2InstallPath),
     'C:\msys64',
     "$env:SystemDrive\msys64",
     (Join-Path $env:USERPROFILE 'scoop\apps\msys2\current'),
@@ -66,6 +62,9 @@ if (-not $msys2Root) {
     throw "未能成功定位或安装 MSYS2。请确认安装路径或通过 winget/choco/scoop 手动安装。"
 }
 
+if ($Msys2InstallPath -and [IO.Path]::GetFullPath($msys2Root) -ne [IO.Path]::GetFullPath($Msys2InstallPath)) { throw 'The requested MSYS2 installation path was not found.' }
+if ($ParentSnapshot) { Add-TerminalMsysSnapshot -Directory $ParentSnapshot -Msys2InstallPath $msys2Root }
+elseif (-not $SkipBackup) { $null=Backup-AllTerminalConfigurations -Msys2InstallPath $msys2Root -Components @('MSYS2','Terminal','Shared') }
 $bashExe = Join-Path $msys2Root 'usr\bin\bash.exe'
 Write-Host "[OK] 已定位 MSYS2 环境: $msys2Root (bash: $bashExe)" -ForegroundColor Green
 Ensure-FastfetchConfigured
@@ -91,13 +90,13 @@ try {
             $iniContent = [System.IO.File]::ReadAllText($iniPath, [System.Text.Encoding]::UTF8)
             if ($iniContent -match '#MSYS2_PATH_TYPE=inherit') {
                 $iniContent = $iniContent -replace '#MSYS2_PATH_TYPE=inherit', 'MSYS2_PATH_TYPE=inherit'
-                [System.IO.File]::WriteAllText($iniPath, $iniContent, [System.Text.Encoding]::UTF8)
+                Set-TerminalText $iniPath $iniContent
             }
         }
     }
     Write-Host "[OK] 已配置 MSYS2_PATH_TYPE=inherit 环境变量与启动策略" -ForegroundColor Green
 } catch {
-    Write-Verbose "MSYS2 PATH_TYPE configuration note: $_"
+    throw "MSYS2 PATH_TYPE configuration failed: $_"
 }
 
 # 触发 bash 一次性初始化 /etc/skel
@@ -124,10 +123,11 @@ $beautifyConfig = @'
 # 1. 继承与补充 Windows 本机环境变量（允许直接调用 Windows 原生安装的 starship, fastfetch, eza, git, yazi 等工具）
 export MSYS2_PATH_TYPE=inherit
 WIN_USER="${USERNAME:-$USER}"
+WIN_HOME="$(cygpath -u "$USERPROFILE")"
 for p in \
-    "/c/Users/$WIN_USER/scoop/shims" \
-    "/c/Users/$WIN_USER/AppData/Local/Microsoft/WinGet/Links" \
-    "/c/Users/$WIN_USER/AppData/Local/Microsoft/WindowsApps" \
+    "$WIN_HOME/scoop/shims" \
+    "$WIN_HOME/AppData/Local/Microsoft/WinGet/Links" \
+    "$WIN_HOME/AppData/Local/Microsoft/WindowsApps" \
     "/c/Program Files/Neovim/bin"; do
     [ -d "$p" ] && [[ ":$PATH:" != *":$p:"* ]] && export PATH="$PATH:$p"
 done
@@ -143,7 +143,7 @@ fi
 
 # 4. Fastfetch 终端横幅展示
 if command -v fastfetch &> /dev/null && [ "${PROFILE_BANNER:-1}" != "0" ] && [ -t 1 ]; then
-    FF_CONF="/c/Users/$WIN_USER/.config/fastfetch/config.jsonc"
+    FF_CONF="$WIN_HOME/.config/fastfetch/config.jsonc"
     if [ -f "$FF_CONF" ]; then
         fastfetch -c "$FF_CONF" 2>/dev/null
     else
@@ -194,7 +194,7 @@ alias lzd='lazydocker'
 # 规范化换行并安全替换或追加
 $newBashrc = ''
 if ($originalBashrc -match "(?s)$([regex]::Escape($startMarker)).*?$([regex]::Escape($endMarker))") {
-    $newBashrc = $originalBashrc -replace "(?s)$([regex]::Escape($startMarker)).*?$([regex]::Escape($endMarker))", $beautifyConfig
+    $newBashrc = [regex]::Replace($originalBashrc, "(?s)$([regex]::Escape($startMarker)).*?$([regex]::Escape($endMarker))", [System.Text.RegularExpressions.MatchEvaluator]{ param($match) $beautifyConfig })
 } else {
     if ($originalBashrc.Trim().Length -gt 0) {
         $newBashrc = $originalBashrc.TrimEnd() + "`n`n" + $beautifyConfig + "`n"
@@ -206,7 +206,7 @@ if ($originalBashrc -match "(?s)$([regex]::Escape($startMarker)).*?$([regex]::Es
 # 统一写入为 Unix 风格 LF 换行且无 BOM 的 UTF-8 文件
 $newBashrc = $newBashrc.Replace("`r`n", "`n")
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-[System.IO.File]::WriteAllText($bashrcPath, $newBashrc, $utf8NoBom)
+Set-TerminalText $bashrcPath $newBashrc
 Write-Host "[OK] 已更新 MSYS2 配置: $bashrcPath" -ForegroundColor Green
 
 # 5. 注册 Windows Terminal MSYS2 配置文件 (若已安装 WT)
@@ -230,12 +230,12 @@ foreach ($wtPath in @($wtStable, $wtPreview)) {
                     $newProfile = [PSCustomObject]@{
                         guid = '{16d4cd58-c9b9-4c8f-8e9e-9b7c4d8f3e2a}'
                         name = 'MSYS2 UCRT64'
-                        commandline = "$msysShellCmd -defterm -here -no-start -ucrt64"
+                        commandline = "`"$msysShellCmd`" -defterm -here -no-start -ucrt64"
                         startingDirectory = '%USERPROFILE%'
                         hidden = $false
                     }
                     $wtJson.profiles.list += $newProfile
-                    $wtJson | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $wtPath -Encoding UTF8
+                    Set-TerminalText $wtPath ($wtJson | ConvertTo-Json -Depth 100)
                     Write-Host "[OK] 已在 Windows Terminal 中注册 MSYS2 终端配置项" -ForegroundColor Green
                 } else {
                     Write-Host "[OK] Windows Terminal 已存在 MSYS2 终端配置项" -ForegroundColor DarkGray

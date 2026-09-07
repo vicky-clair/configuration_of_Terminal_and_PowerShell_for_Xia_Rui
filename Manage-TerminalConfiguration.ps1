@@ -10,12 +10,13 @@ param(
     [string]$BackupDirectory
 )
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'scripts/TerminalState.ps1')
 $backupRoot = (Resolve-Path -LiteralPath $BackupDirectory).ProviderPath
 $manifest = Get-Content -LiteralPath (Join-Path $backupRoot 'deployment.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 
 # 白名单目标路径定义
 $allowedTargets = @(
-    (Join-Path $env:USERPROFILE 'Documents\PowerShell\Microsoft.PowerShell_profile.ps1'),
+    (Join-Path (Get-TerminalDocumentsPath) 'PowerShell/Microsoft.PowerShell_profile.ps1'),
     (Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json')
 )
 if ($manifest.Files.Count -ne 2) { throw '部署清单校验失败：预期必须恰好包含两个目标配置文件。' }
@@ -74,23 +75,13 @@ if ($Mode -eq 'Apply') {
 if (-not $PSCmdlet.ShouldProcess(($allowedTargets -join ', '), $Mode)) { return }
 
 # 3. 内存与磁盘字节级安全原子写入（支持 IO 锁冲突重试）
-function Set-TargetBytesSafely([string]$Path, [byte[]]$Bytes) {
-    for ($retry = 0; $retry -lt 10; $retry++) {
-        try {
-            [System.IO.File]::WriteAllBytes($Path, $Bytes)
-            return
-        } catch [System.IO.IOException] {
-            Start-Sleep -Milliseconds 100
-        }
-    }
-    [System.IO.File]::WriteAllBytes($Path, $Bytes)
-}
+function Set-TargetBytesSafely([string]$Path, [byte[]]$Bytes) { Set-TerminalBytes -Path $Path -Bytes $Bytes }
 
 # 捕获写入前的实时字节，以备紧急回滚；若执行 Rollback，额外将最新修改归档至 pre-rollback 目录
 $priorBytes = @{}
 foreach ($entry in $manifest.Files) { $priorBytes[$entry.Target] = [System.IO.File]::ReadAllBytes($entry.Target) }
 if ($Mode -eq 'Rollback') {
-    $rescueDirectory = Join-Path $backupRoot ('pre-rollback-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
+    $rescueDirectory = Join-Path $backupRoot ('pre-rollback-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $rescueDirectory | Out-Null
     foreach ($entry in $manifest.Files) {
         Set-TargetBytesSafely (Join-Path $rescueDirectory $entry.After) $priorBytes[$entry.Target]

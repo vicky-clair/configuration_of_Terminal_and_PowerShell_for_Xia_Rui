@@ -9,7 +9,8 @@
 #>
 [CmdletBinding()]
 param(
-    [switch]$Uninstall
+    [switch]$Uninstall,
+    [switch]$SkipBackup
 )
 
 $ErrorActionPreference = 'Stop'
@@ -29,7 +30,7 @@ if ($Uninstall) {
 }
 
 # 2. 全自动前置备份：捕获当前所有终端配置，支持一键无损回退
-Backup-AllTerminalConfigurations
+if (-not $SkipBackup) { $null=Backup-AllTerminalConfigurations -Components @('Cmd','Shared') }
 
 # 3. 检查并准备 Scoop 包管理器
 Write-Host "`n[1/4] 检查并准备 Scoop 包管理器及仓库..." -ForegroundColor Yellow
@@ -52,6 +53,6 @@ Ensure-StarshipConfigured
 
 # 5. 部署 CMD AutoRun 脚本与 Clink Lua 脚本并注册
 Write-Host "`n[4/4] 部署 CMD 初始化脚本与当前用户 AutoRun 注册表..." -ForegroundColor Yellow
-& (Join-Path $projectRoot 'cmd\Install-CmdConfiguration.ps1')
+& (Join-Path $projectRoot 'cmd\Install-CmdConfiguration.ps1') -SkipBackup
 
 Write-Host "`n[+] CMD 现代化配置已全部就绪！打开 cmd.exe 即可立即查看全套效果。" -ForegroundColor Cyan

@@ -2,12 +2,13 @@
 # 创建部署快照脚本 (捕获当前系统实时配置与待部署暂存文件，生成 SHA-256 清单)
 # ============================================================================
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'TerminalState.ps1')
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$timestamp = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N')
 $deployDir = Join-Path $projectRoot "backups\deployment-$timestamp"
 New-Item -ItemType Directory -Path $deployDir -Force | Out-Null
 
-$livePs = Join-Path $env:USERPROFILE 'Documents\PowerShell\Microsoft.PowerShell_profile.ps1'
+$livePs = Join-Path (Get-TerminalDocumentsPath) 'PowerShell/Microsoft.PowerShell_profile.ps1'
 $liveWt = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
 
 $stagedPs = Join-Path $projectRoot 'Microsoft.PowerShell_profile.ps1'
@@ -22,7 +23,6 @@ Copy-Item -LiteralPath $stagedPs -Destination (Join-Path $deployDir 'PowerShell7
 Copy-Item -LiteralPath $stagedWt -Destination (Join-Path $deployDir 'Terminal-stable.after.json') -Force
 
 # 3. 将管理脚本拷贝入快照目录，确保该快照具备独立自包含回退能力
-Copy-Item -LiteralPath (Join-Path $projectRoot 'Manage-TerminalConfiguration.ps1') -Destination (Join-Path $deployDir 'Manage-TerminalConfiguration.ps1') -Force
 
 # 4. 计算哈希并生成原子清单 deployment.json
 $manifest = @{

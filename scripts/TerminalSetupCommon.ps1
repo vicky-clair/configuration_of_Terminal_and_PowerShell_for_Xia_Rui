@@ -1,4 +1,6 @@
-﻿# ============================================================================
+﻿. (Join-Path $PSScriptRoot 'TerminalState.ps1')
+
+# ============================================================================
 # Terminal Setup Common Library (跨操作系统 Win11/10/8.1 兼容性与环境准备)
 # ============================================================================
 
@@ -22,16 +24,8 @@ function Initialize-SetupEnvironment {
     }
     Write-Host "[*] 检测到操作系统: $osName" -ForegroundColor Cyan
 
-    # 3. 检查并设置 ExecutionPolicy (允许当前用户运行脚本)
-    try {
-        $policy = Get-ExecutionPolicy -Scope CurrentUser
-        if ($policy -in @('Restricted', 'Undefined')) {
-            Write-Host "[*] 正在配置 CurrentUser 执行策略为 RemoteSigned..." -ForegroundColor Yellow
-            Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-        }
-    } catch {
-        Write-Verbose "ExecutionPolicy configuration note: $_"
-    }
+    # Do not persistently change execution policy or repository trust.
+
 }
 
 function Ensure-ScoopInstalled {
@@ -51,7 +45,13 @@ function Ensure-ScoopInstalled {
     if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
         Write-Host "[*] 未检测到 Scoop，正在通过官方脚本一键安装..." -ForegroundColor Yellow
         try {
-            Invoke-Expression (Invoke-RestMethod -Uri 'https://get.scoop.sh' -UseBasicParsing)
+            $bootstrap=Join-Path ([IO.Path]::GetTempPath()) ('scoop-bootstrap-' + [guid]::NewGuid().ToString('N') + '.ps1')
+            try {
+                Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/ScoopInstaller/Install/1e2f334083d609986d8c8bc9e31ae8e87c39fab4/install.ps1' -UseBasicParsing -OutFile $bootstrap -TimeoutSec 30 -ErrorAction Stop
+                if ((Get-TerminalHash $bootstrap) -ne '94F983B190438311E006B957DB7C8422709E0BA62A6C2AC04E278164108F2512') { throw 'Scoop bootstrap SHA256 mismatch.' }
+                & (Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe') -NoProfile -ExecutionPolicy Bypass -File $bootstrap
+                if ($LASTEXITCODE -ne 0) { throw "Scoop bootstrap failed: $LASTEXITCODE" }
+            } finally { if ([IO.File]::Exists($bootstrap)) { [IO.File]::Delete($bootstrap) } }
             $env:PATH = "$env:PATH;$env:USERPROFILE\scoop\shims"
         } catch {
             throw "Scoop 安装失败，请检查网络连接: $_"
@@ -65,6 +65,7 @@ function Ensure-ScoopBuckets {
     param([string[]]$Buckets = @('main', 'extras', 'versions', 'nerd-fonts'))
     Ensure-ScoopInstalled
     $bucketListOutput = & scoop bucket list
+    if ($LASTEXITCODE -ne 0) { throw 'Scoop bucket list failed.' }
     $installedBuckets = @($bucketListOutput | ForEach-Object {
         if ($_.PSObject.Properties['Name'] -and $_.Name) {
             $_.Name.ToString().Trim()
@@ -76,9 +77,10 @@ function Ensure-ScoopBuckets {
         if ($installedBuckets -notcontains $b) {
             Write-Host "[*] 正在添加 Scoop 仓库: $b..." -ForegroundColor Yellow
             try {
-                & scoop bucket add $b 2>$null
+                & scoop bucket add $b 2>$null | Out-Host
+                if ($LASTEXITCODE -ne 0) { throw "Scoop bucket add failed: $b" }
             } catch {
-                Write-Warning "添加仓库 $b 遇到提示: $_"
+                throw "Cannot add Scoop bucket $b`: $_"
             }
         } else {
             Write-Host "[OK] Scoop 仓库已添加: $b" -ForegroundColor DarkGray
@@ -90,6 +92,7 @@ function Install-ScoopAppsIfMissing {
     param([string[]]$Apps)
     Ensure-ScoopInstalled
     $listOutput = & scoop list
+    if ($LASTEXITCODE -ne 0) { throw 'Scoop list failed.' }
     $installed = @($listOutput | ForEach-Object {
         if ($_.PSObject.Properties['Name'] -and $_.Name) {
             $_.Name.ToString().Trim()
@@ -122,6 +125,7 @@ function Install-ScoopAppsIfMissing {
 
     foreach ($app in $Apps) {
         $baseName = $app.Split('/')[-1]
+        $commandName = switch ($baseName) { 'ripgrep' {'rg'} 'neovim' {'nvim'} 'nushell' {'nu'} default {$baseName} }
 
         # 特殊处理：如果是字体应用，检测系统字体目录（当前用户与全局 Windows Fonts）
         if ($baseName -match '(?i)JetBrains' -or $app -match 'nerd-fonts') {
@@ -133,8 +137,8 @@ function Install-ScoopAppsIfMissing {
         }
 
         # 检查是否已通过外部途径（如 WinGet / MSI / 系统自带）安装
-        if (Get-Command $baseName -ErrorAction SilentlyContinue) {
-            Write-Host "[OK] 应用已就绪: $baseName ($((Get-Command $baseName).Source))" -ForegroundColor DarkGray
+        if (Get-Command $commandName -ErrorAction SilentlyContinue) {
+            Write-Host "[OK] 应用已就绪: $baseName ($((Get-Command $commandName).Source))" -ForegroundColor DarkGray
             continue
         }
 
@@ -142,7 +146,7 @@ function Install-ScoopAppsIfMissing {
             Write-Host "[*] 正在安装 Scoop 应用: $app..." -ForegroundColor Yellow
             $scoopSuccess = $false
             try {
-                & scoop install $app
+                & scoop install $app | Out-Host
                 if ($LASTEXITCODE -eq 0) {
                     $scoopSuccess = $true
                 }
@@ -151,7 +155,7 @@ function Install-ScoopAppsIfMissing {
             }
 
             # 若 Scoop 安装遇阻且该工具在 WinGet 中存在，自动尝试 WinGet 容错兜底
-            if (-not $scoopSuccess -and -not (Get-Command $baseName -ErrorAction SilentlyContinue)) {
+            if (-not $scoopSuccess -and -not (Get-Command $commandName -ErrorAction SilentlyContinue)) {
                 if ($wingetFallbackMap.ContainsKey($baseName)) {
                     $wingetId = $wingetFallbackMap[$baseName]
                     Write-Host "[*] 启动 WinGet 智能容错兜底: 正在通过 WinGet 安装 $baseName ($wingetId)..." -ForegroundColor Cyan
@@ -161,6 +165,7 @@ function Install-ScoopAppsIfMissing {
                             $wPath = if ($wingetCmd) { $wingetCmd.Source } else { "winget" }
                             $proc = Start-Process -FilePath $wPath -ArgumentList "install", "--id", $wingetId, "--exact", "--accept-source-agreements", "--accept-package-agreements", "--silent" -NoNewWindow -PassThru -Wait
                             if ($proc.ExitCode -in @(0, -1978335189)) {
+                                $scoopSuccess = $true
                                 Write-Host "[OK] [WinGet] $baseName 兜底安装成功！" -ForegroundColor Green
                                 Refresh-SessionPath
                             } else {
@@ -172,6 +177,9 @@ function Install-ScoopAppsIfMissing {
                     }
                 }
             }
+            if (-not $scoopSuccess) { throw "Unable to install required application: $app" }
+            Refresh-SessionPath
+            if ($app -notmatch 'nerd-fonts' -and -not (Get-Command $commandName -ErrorAction SilentlyContinue)) { throw "Installed app is not executable: $commandName" }
         } else {
             Write-Host "[OK] 应用已安装: $app" -ForegroundColor DarkGray
         }
@@ -179,33 +187,26 @@ function Install-ScoopAppsIfMissing {
 }
 
 function Install-PSModulesIfMissing {
-    param([string[]]$Modules)
+    param([string[]]$Modules, [ValidateSet('Current','Core','Desktop')][string]$Edition='Current')
 
-    # 自动配置 NuGet Provider 与 PSGallery 信任，防止无人值守安装时挂起等待用户交互
-    try {
-        if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
-            Write-Host "[*] 正在静默配置 NuGet 包管理器提供程序..." -ForegroundColor Yellow
-            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -Scope CurrentUser -ErrorAction SilentlyContinue | Out-Null
-        }
-        $gallery = Get-PSRepository -Name 'PSGallery' -ErrorAction SilentlyContinue
-        if ($gallery -and $gallery.InstallationPolicy -ne 'Trusted') {
-            Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -Confirm:$false -ErrorAction SilentlyContinue
-        }
-    } catch {
-        Write-Verbose "NuGet/PSGallery setup note: $_"
+    if ($Edition -ne 'Current' -and $Edition -ne $PSVersionTable.PSEdition) {
+        $engine=if ($Edition -eq 'Core') { (Get-Command pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source }
+                else { Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe' }
+        & $engine -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Install-RequiredModules.ps1') -ModuleNames ($Modules -join ',')
+        if ($LASTEXITCODE -ne 0) { throw "Module installation in $Edition failed: $LASTEXITCODE" }
+        return
     }
+    $versions=@{PSReadLine='2.4.5';'Terminal-Icons'='0.11.0';PSFzf='2.7.3'}
 
+    # Keep the user's PSGallery trust policy and publisher checks intact.
+    $gallery=Get-PSRepository -Name PSGallery -ErrorAction Stop
+    if ($gallery.SourceLocation.TrimEnd('/') -ne 'https://www.powershellgallery.com/api/v2') { throw 'PSGallery source URL is not the official endpoint.' }
     foreach ($mod in $Modules) {
-        if (-not (Get-Module -ListAvailable -Name $mod)) {
-            Write-Host "[*] 正在安装 PowerShell 模块: $mod..." -ForegroundColor Yellow
-            try {
-                Install-Module -Name $mod -Scope CurrentUser -Force -Confirm:$false -SkipPublisherCheck -ErrorAction Stop
-                Write-Host "[OK] 模块安装完成: $mod" -ForegroundColor Green
-            } catch {
-                Write-Warning "模块 $mod 安装遇到警告: $_"
-            }
-        } else {
-            Write-Host "[OK] 模块已就绪: $mod" -ForegroundColor DarkGray
+        if (-not $versions.ContainsKey($mod)) { throw "Module is not in the tested version list: $mod" }
+        $version=$versions[$mod]
+        if (-not @(Get-Module -ListAvailable -Name $mod | Where-Object Version -eq ([version]$version)).Count) {
+            Install-Module -Name $mod -RequiredVersion $version -Repository PSGallery -Scope CurrentUser -Force -Confirm:$false -ErrorAction Stop
+            if (-not @(Get-Module -ListAvailable -Name $mod | Where-Object Version -eq ([version]$version)).Count) { throw "Module installation failed: $mod" }
         }
     }
 }
@@ -230,7 +231,7 @@ function Ensure-WindowsTerminalConfigured {
         $targetDir = Split-Path -Parent $target
         if (Test-Path $targetDir) {
             if ($Force -or (Test-Path $target)) {
-                Copy-Item -LiteralPath $sourceSettings -Destination $target -Force
+                Set-TerminalBytes $target ([IO.File]::ReadAllBytes($sourceSettings))
                 Write-Host "[OK] Windows Terminal 深度美化配置 (亚克力磨砂/Catppuccin配色/JetBrainsMono字体) 已部署至: $target" -ForegroundColor Green
             }
         }
@@ -254,10 +255,13 @@ function Ensure-OhMyPoshThemes {
         )
         foreach ($cand in $candidates) {
             if ($cand -and (Test-Path -LiteralPath $cand)) {
-                $found = @(Get-ChildItem -LiteralPath $cand -Filter '*.omp.*' -ErrorAction SilentlyContinue)
+                $found = @(Get-ChildItem -LiteralPath $cand -File -Filter '*.omp.json' -ErrorAction SilentlyContinue)
                 if ($found.Count -gt 0) {
                     Write-Host "[*] 正在从 $cand 同步内置主题至 $themesPath..." -ForegroundColor Yellow
-                    Copy-Item -LiteralPath "$cand\*.omp.*" -Destination $themesPath -Force -ErrorAction SilentlyContinue
+                    foreach ($theme in $found) {
+                        $destination=Join-Path $themesPath $theme.Name
+                        if (-not (Test-Path -LiteralPath $destination)) { Set-TerminalBytes $destination ([IO.File]::ReadAllBytes($theme.FullName)) }
+                    }
                     $existing = @(Get-ChildItem -LiteralPath $themesPath -Filter '*.omp.json' -ErrorAction SilentlyContinue)
                     if ($existing.Count -gt 0) { break }
                 }
@@ -284,14 +288,14 @@ function Ensure-FastfetchConfigured {
         $asciiSrc = Join-Path $projectFastfetchDir 'ascii.txt'
         $configSrc = Join-Path $projectFastfetchDir 'config.jsonc'
         if (Test-Path $asciiSrc) {
-            Copy-Item -LiteralPath $asciiSrc -Destination (Join-Path $targetFastfetchDir 'ascii.txt') -Force
+            Set-TerminalBytes (Join-Path $targetFastfetchDir 'ascii.txt') ([IO.File]::ReadAllBytes($asciiSrc))
         }
         if (Test-Path $configSrc) {
             $utf8NoBom = New-Object System.Text.UTF8Encoding $false
             $configContent = [System.IO.File]::ReadAllText($configSrc, $utf8NoBom)
             $portablePath = "$($env:USERPROFILE.Replace('\', '/'))/.config/fastfetch/ascii.txt"
             $configContent = $configContent -replace '"source":\s*".*?"', "`"source`": `"$portablePath`""
-            [System.IO.File]::WriteAllText((Join-Path $targetFastfetchDir 'config.jsonc'), $configContent, $utf8NoBom)
+            Set-TerminalText (Join-Path $targetFastfetchDir 'config.jsonc') $configContent
         }
         Write-Host "[OK] Fastfetch 专属 ASCII 横幅与配置文件已部署就绪 ($targetFastfetchDir)" -ForegroundColor Green
     }
@@ -312,7 +316,7 @@ function Ensure-StarshipConfigured {
     }
 
     if (Test-Path -LiteralPath $starshipSource) {
-        Copy-Item -LiteralPath $starshipSource -Destination $targetStarshipFile -Force
+        Set-TerminalBytes $targetStarshipFile ([IO.File]::ReadAllBytes($starshipSource))
         Write-Host "[OK] Starship 赛博朋克固定配置已部署就绪: $targetStarshipFile" -ForegroundColor Green
     }
 }
@@ -358,11 +362,12 @@ function Ensure-WingetConfigured {
         }
         Write-Host "[*] 正在更新 WinGet 仓库索引..." -ForegroundColor DarkGray
         & $wingetCmd.Source source update 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'WinGet source update failed.' }
         Write-Host "[OK] WinGet 软件源仓库配置就绪" -ForegroundColor Green
         return $true
     } catch {
         Write-Warning "[!] 配置 WinGet 仓库源时遇到提示: $_"
-        return $true
+        return $false
     }
 }
 
@@ -432,6 +437,8 @@ function Install-AppWithChocoWingetFallback {
 
     if ($chocoInstalled) {
         Refresh-SessionPath
+        if ($CommandCheck -and -not (Get-Command $CommandCheck -ErrorAction SilentlyContinue)) { throw "Chocolatey reported success but $CommandCheck is missing." }
+        if ($PathCheck -and -not (Test-Path -LiteralPath $PathCheck)) { throw "Chocolatey reported success but $PathCheck is missing." }
         return $true
     }
 
@@ -456,6 +463,8 @@ function Install-AppWithChocoWingetFallback {
             if ($process.ExitCode -in @(0, -1978335189)) {
                 Write-Host "[OK] [WinGet] $Name 安装成功！" -ForegroundColor Green
                 Refresh-SessionPath
+                if ($CommandCheck -and -not (Get-Command $CommandCheck -ErrorAction SilentlyContinue)) { throw "WinGet reported success but $CommandCheck is missing." }
+                if ($PathCheck -and -not (Test-Path -LiteralPath $PathCheck)) { throw "WinGet reported success but $PathCheck is missing." }
                 return $true
             } else {
                 Write-Warning "[!] [WinGet] 安装返回退出码: $($process.ExitCode)，准备尝试 Scoop 终极保底..."
@@ -472,6 +481,8 @@ function Install-AppWithChocoWingetFallback {
             Ensure-ScoopBuckets -Buckets @('main', 'extras', 'versions')
             Install-ScoopAppsIfMissing -Apps @($ScoopId)
             Refresh-SessionPath
+            if ($CommandCheck -and -not (Get-Command $CommandCheck -ErrorAction SilentlyContinue)) { throw "Missing command: $CommandCheck" }
+            if ($PathCheck -and -not (Test-Path -LiteralPath $PathCheck)) { throw "Missing install path: $PathCheck" }
             return $true
         } catch {
             Write-Warning "[!] [Scoop] 安装 $Name 失败: $_"
@@ -479,167 +490,19 @@ function Install-AppWithChocoWingetFallback {
     }
 
     Write-Warning "[!] 应用 $Name 所有安装途径均已尝试完毕，请检查网络或手动安装。"
-    return $false
+    throw "All installation methods failed for $Name."
 }
 
 function Backup-AllTerminalConfigurations {
     [CmdletBinding()]
-    param(
-        [switch]$Force
-    )
-
-    # 避免短时间内（同一安装流程中）重复备份
-    if (-not $Force -and $global:LAST_TERMINAL_BACKUP_DIR -and (Test-Path $global:LAST_TERMINAL_BACKUP_DIR)) {
-        return $global:LAST_TERMINAL_BACKUP_DIR
-    }
-
-    $projectRoot = Split-Path -Parent $PSScriptRoot
-    if (-not (Test-Path (Join-Path $projectRoot 'Microsoft.PowerShell_profile.ps1'))) {
-        $projectRoot = $PSScriptRoot
-    }
-    $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-    $backupDir = Join-Path $projectRoot "backups\install-backup-$timestamp"
-    if (-not (Test-Path $backupDir)) {
-        New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
-    }
-
-    # 智能解析 MSYS2 .bashrc 路径
-    $msys2Bashrc = Join-Path 'C:\msys64' "home\$env:USERNAME\.bashrc"
-    foreach ($cand in @('C:\msys64', "$env:SystemDrive\msys64", (Join-Path $env:USERPROFILE 'scoop\apps\msys2\current'), 'C:\tools\msys64')) {
-        $cPath = Join-Path $cand "home\$env:USERNAME\.bashrc"
-        if (Test-Path -LiteralPath $cPath) {
-            $msys2Bashrc = $cPath
-            break
-        }
-    }
-
-    $targets = @(
-        @{
-            Name = 'PowerShell7_profile.ps1'
-            Path = (Join-Path $env:USERPROFILE 'Documents\PowerShell\Microsoft.PowerShell_profile.ps1')
-            Desc = 'PowerShell 7 Profile'
-        },
-        @{
-            Name = 'WinPS51_profile.ps1'
-            Path = (Join-Path $env:USERPROFILE 'Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1')
-            Desc = 'Windows PowerShell 5.1 Profile'
-        },
-        @{
-            Name = 'Terminal_stable.json'
-            Path = (Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json')
-            Desc = 'Windows Terminal (Stable) Settings'
-        },
-        @{
-            Name = 'Terminal_preview.json'
-            Path = (Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json')
-            Desc = 'Windows Terminal (Preview) Settings'
-        },
-        @{
-            Name = 'clink_starship.lua'
-            Path = (Join-Path $env:LOCALAPPDATA 'clink\starship.lua')
-            Desc = 'Clink Starship Lua Script'
-        },
-        @{
-            Name = 'clink_settings.lua'
-            Path = (Join-Path $env:LOCALAPPDATA 'clink\settings.lua')
-            Desc = 'Clink Settings Lua Script'
-        },
-        @{
-            Name = 'starship.toml'
-            Path = (Join-Path $env:USERPROFILE '.config\starship.toml')
-            Desc = 'Starship Config'
-        },
-        @{
-            Name = 'cmd_autorun.cmd'
-            Path = (Join-Path $env:USERPROFILE '.config\cmd\autorun.cmd')
-            Desc = 'CMD AutoRun Batch'
-        },
-        @{
-            Name = 'fastfetch_config.jsonc'
-            Path = (Join-Path $env:USERPROFILE '.config\fastfetch\config.jsonc')
-            Desc = 'Fastfetch Config'
-        },
-        @{
-            Name = 'fastfetch_ascii.txt'
-            Path = (Join-Path $env:USERPROFILE '.config\fastfetch\ascii.txt')
-            Desc = 'Fastfetch ASCII Banner'
-        },
-        @{
-            Name = 'nushell_config.nu'
-            Path = (Join-Path $env:APPDATA 'nushell\config.nu')
-            Desc = 'NuShell Configuration (config.nu)'
-        },
-        @{
-            Name = 'nushell_env.nu'
-            Path = (Join-Path $env:APPDATA 'nushell\env.nu')
-            Desc = 'NuShell Environment (env.nu)'
-        },
-        @{
-            Name = 'nushell_starship.nu'
-            Path = (Join-Path $env:APPDATA 'nushell\vendor\autoload\starship.nu')
-            Desc = 'NuShell Starship Prompt Autoload'
-        },
-        @{
-            Name = 'msys2_bashrc'
-            Path = $msys2Bashrc
-            Desc = 'MSYS2 Bash Configuration (.bashrc)'
-        }
-    )
-
-    $manifestFiles = @()
-    foreach ($item in $targets) {
-        $existed = Test-Path -LiteralPath $item.Path -PathType Leaf
-        $fileEntry = @{
-            Name = $item.Name
-            Target = $item.Path
-            Desc = $item.Desc
-            Existed = $existed
-            SHA256 = ''
-        }
-        if ($existed) {
-            $dest = Join-Path $backupDir $item.Name
-            Copy-Item -LiteralPath $item.Path -Destination $dest -Force
-            $fileEntry.SHA256 = (Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash
-        }
-        $manifestFiles += $fileEntry
-    }
-
-    # 捕获 CMD AutoRun 注册表键
-    $regKey = 'HKCU:\Software\Microsoft\Command Processor'
-    $autorunVal = $null
-    $autorunExisted = $false
-    try {
-        if (Test-Path $regKey) {
-            $prop = Get-ItemProperty -Path $regKey -Name 'AutoRun' -ErrorAction SilentlyContinue
-            if ($prop -and $prop.AutoRun -ne $null) {
-                $autorunExisted = $true
-                $autorunVal = $prop.AutoRun.ToString()
-            }
-        }
-    } catch {}
-
-    $manifest = @{
-        Timestamp = (Get-Date -Format o)
-        Files = $manifestFiles
-        Registry = @{
-            Key = $regKey
-            Name = 'AutoRun'
-            Existed = $autorunExisted
-            Value = $autorunVal
-        }
-    }
-
-    $manifestJson = $manifest | ConvertTo-Json -Depth 5
-    Set-Content -LiteralPath (Join-Path $backupDir 'manifest.json') -Value $manifestJson -Encoding UTF8
-
-    # 记录最新安装备份路径
-    $lastBackupFile = Join-Path $projectRoot '.last-install-backup'
-    Set-Content -LiteralPath $lastBackupFile -Value $backupDir -Encoding UTF8
-    $global:LAST_TERMINAL_BACKUP_DIR = $backupDir
-
-    Write-Host "[备份] 已完成当前系统终端全量配置快照: $backupDir" -ForegroundColor Green
-    Write-Host "[提示] 如需恢复，可随时运行 .\Restore-All.ps1 进行一键无损回退。" -ForegroundColor Cyan
-
+    param([switch]$Force, [string]$Msys2InstallPath, [string[]]$Components=@('All'),
+          [string]$CmdTargetDir, [string]$PointerName='.last-install-backup')
+    $projectRoot=Split-Path -Parent $PSScriptRoot
+    $backupDir=Join-Path $projectRoot ('backups/install-backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N'))
+    $targets=@(Get-TerminalTargets -Msys2InstallPath $Msys2InstallPath -Components $Components -CmdTargetDir $CmdTargetDir)
+    $null=New-TerminalSnapshot -Directory $backupDir -Targets $targets -RegistrySpecs @(Get-TerminalRegistrySpecs $Components)
+    # Each top-level operation owns its snapshot; nested installers explicitly skip backup.
+    Set-TerminalText (Join-Path $projectRoot $PointerName) $backupDir
+    Write-Host "Snapshot: $backupDir"
     return $backupDir
 }
-

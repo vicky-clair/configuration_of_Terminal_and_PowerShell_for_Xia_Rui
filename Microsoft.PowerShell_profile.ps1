@@ -1,10 +1,10 @@
 ﻿# Dot-source this file from $PROFILE. No downloads or package installs at startup.
 
 # Scoop normally manages PATH itself. Repair a missing entry without duplicating it.
-$profileScoopRoot = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $env:USERPROFILE 'scoop' }
-$profileShims = Join-Path $profileScoopRoot 'shims'
+$profileScoopRoot = if ($env:SCOOP) { $env:SCOOP } else { [IO.Path]::Combine($env:USERPROFILE, 'scoop') }
+$profileShims = [IO.Path]::Combine($profileScoopRoot, 'shims')
 $profilePathEntries = @($env:PATH -split ';' | ForEach-Object { $_.Trim().TrimEnd('\', '/') })
-if ((Test-Path -LiteralPath $profileShims -PathType Container) -and
+if ([IO.Directory]::Exists($profileShims) -and
     $profilePathEntries -notcontains $profileShims.TrimEnd('\', '/')) {
     $env:PATH = if ($env:PATH) { "$env:PATH;$profileShims" } else { $profileShims }
 }
@@ -55,50 +55,27 @@ function ..   { Set-Location .. }
 function ...  { Set-Location ../.. }
 function .... { Set-Location ../../.. }
 
-if (Get-Command git -CommandType Application -ErrorAction SilentlyContinue) {
-    Set-Alias g git
-    function gst { git status @args }
-    function gco { git checkout @args }
-    function gb  { git branch @args }
-    # gl is the built-in Get-Location alias and would shadow a function named gl.
-    function glog { git log --oneline --graph --all @args }
-}
+Set-Alias g git
+function gst { git status @args }
+function gco { git checkout @args }
+function gb { git branch @args }
+function glog { git log --oneline --graph --all @args }
 Set-Alias grep Select-String
 
 # Yazi file manager integration with automatic directory changing upon exit
-if (Get-Command yazi -CommandType Application -ErrorAction SilentlyContinue) {
-    function y {
-        $tmp = [System.IO.Path]::GetTempFileName()
+function y {
+    if (-not (Get-Command yazi -CommandType Application -ErrorAction SilentlyContinue)) { Write-Warning 'yazi is not installed.'; return }
+    $tmp=[IO.Path]::GetTempFileName()
+    try {
         & yazi @args --cwd-file="$tmp"
-        if (Test-Path $tmp) {
-            $cwd = (Get-Content -Path $tmp -ErrorAction SilentlyContinue | Out-String).Trim()
-            if (-not [String]::IsNullOrEmpty($cwd) -and $cwd -ne $PWD.Path -and (Test-Path $cwd)) {
-                Set-Location -- $cwd
-            }
-            Remove-Item -Path $tmp -Force -ErrorAction SilentlyContinue
-        }
-    }
+        $destination=[IO.File]::ReadAllText($tmp).Trim()
+        if ($destination -and [IO.Directory]::Exists($destination)) { Set-Location -LiteralPath $destination }
+    } finally { [IO.File]::Delete($tmp) }
 }
-
-# Lazydocker alias
-if (Get-Command lazydocker -CommandType Application -ErrorAction SilentlyContinue) {
-    Set-Alias lzd lazydocker
-}
-
-# Lazygit alias & integration (lg / lzg)
-if (Get-Command lazygit -CommandType Application -ErrorAction SilentlyContinue) {
-    Set-Alias lg lazygit
-    Set-Alias lzg lazygit
-} else {
-    function lg { llg @args }
-}
-
-# Neovim as default editor & quick aliases
-if (Get-Command nvim -CommandType Application -ErrorAction SilentlyContinue) {
-    $env:EDITOR = 'nvim'
-    $env:VISUAL = 'nvim'
-    function v { & nvim @args }
-}
+Set-Alias lzd lazydocker
+Set-Alias lzg lazygit
+function lg { if (Get-Command lazygit -CommandType Application -ErrorAction SilentlyContinue) { & lazygit @args } else { llg @args } }
+function v { & nvim @args }
 
 # Zoxide interactive query alias
 function zi {
@@ -130,7 +107,7 @@ function fv {
         "--preview=$previewCmd",
         '--preview-window=right:60%:wrap'
     )
-    $file = & fzf @fzfArgs
+    $file = & fzf @fzfArgs --no-multi
     if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($file) -and (Test-Path -LiteralPath $file)) {
         if (Get-Command nvim -CommandType Application -ErrorAction SilentlyContinue) {
             & nvim $file
@@ -145,6 +122,7 @@ function fv {
 # Find In Files (ripgrep + fzf + bat + nvim interactive full-text search)
 function fif {
     param([string]$Query = '')
+    if ([string]::IsNullOrWhiteSpace($Query)) { Write-Warning 'Usage: fif <search text>'; return }
     if (-not (Get-Command rg -CommandType Application -ErrorAction SilentlyContinue)) {
         Write-Warning "ripgrep (rg) 未安装，无法执行全文代码检索。请运行: scoop install ripgrep"
         return
@@ -168,13 +146,8 @@ function fif {
         "--preview=$previewCmd",
         '--preview-window=right:60%:+{2}-5'
     )
-    $rgArgs = @('--column', '--line-number', '--no-heading', '--color=always', '--smart-case')
-    $rgOutput = if ($Query) {
-        & rg @rgArgs -- $Query
-    } else {
-        & rg @rgArgs .
-    }
-    $selected = $rgOutput | & fzf @fzfArgs
+    $rgArgs = @('--column', '--line-number', '--no-heading', '--color=never', '--smart-case')
+    $selected = & rg @rgArgs -- $Query | & fzf @fzfArgs --no-multi
     if ($selected) {
         $parts = $selected -split ':'
         $file = $parts[0]
@@ -191,38 +164,17 @@ function fif {
     }
 }
 
-# Integrate fd and Catppuccin Mocha theme with live bat/eza preview into FZF
-if (Get-Command fd -CommandType Application -ErrorAction SilentlyContinue) {
-    $env:FZF_DEFAULT_COMMAND = 'fd --type f --hidden --exclude .git --exclude node_modules --exclude .venv'
-    $env:FZF_ALT_C_COMMAND = 'fd --type d --hidden --exclude .git --exclude node_modules --exclude .venv'
-}
-
-$fzfColors = '--color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 ' +
-             '--color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc ' +
-             '--color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 ' +
-             '--color=selected-bg:#45475a'
-
-$fzfPreview = ''
-if (Get-Command bat -CommandType Application -ErrorAction SilentlyContinue) {
-    $fzfPreview = '--preview "bat --style=numbers --color=always --line-range :500 {}" --preview-window "right:60%:wrap"'
-}
-$env:FZF_DEFAULT_OPTS = "$fzfColors --border=rounded --info=inline --height=80% --layout=reverse --multi $fzfPreview".Trim()
-
-if (Get-Command eza -CommandType Application -ErrorAction SilentlyContinue) {
-    $env:FZF_ALT_C_OPTS = "$fzfColors --border=rounded --info=inline --height=80% --layout=reverse --preview 'eza --tree --level=2 --color=always --icons=always {}' --preview-window 'right:60%:wrap'"
-}
-
 function Log-Info($msg)  { Write-Host "[INFO]  $msg" -ForegroundColor Cyan }
 function Log-Warn($msg)  { Write-Host "[WARN]  $msg" -ForegroundColor Yellow }
 function Log-Error($msg) { Write-Host "[ERROR] $msg" -ForegroundColor Red }
 
 function Show-SystemInfo {
-    if ($env:POWERSHELL_PROFILE_MINIMAL -eq '1' -or $env:POWERSHELL_PROFILE_BANNER -eq '0') { return }
+    if ($env:POWERSHELL_PROFILE_MINIMAL -eq '1') { return }
     if (Get-Command fastfetch -CommandType Application -ErrorAction SilentlyContinue) {
         $configFile = Join-Path $env:USERPROFILE '.config\fastfetch\config.jsonc'
         if (Test-Path -LiteralPath $configFile -PathType Leaf) {
-            fastfetch -c $configFile @args
-        } else { fastfetch @args }
+            try { Write-Host (Invoke-ProfileProcess fastfetch (@('-c',$configFile)+$args) -TimeoutMs 2000) } catch { Write-Verbose $_ }
+        } else { try { Write-Host (Invoke-ProfileProcess fastfetch $args -TimeoutMs 2000) } catch { Write-Verbose $_ } }
     } else { Write-Warning 'Fastfetch is not installed. Run: scoop install fastfetch' }
 }
 
@@ -503,14 +455,15 @@ function mkcd {
 }
 
 function Find-LargeFiles {
-    param(
-        [string]$Path = ".",
-        [int]$TopN = 10
-    )
-    Get-ChildItem -Path $Path -Recurse -File -ErrorAction SilentlyContinue |
-        Sort-Object Length -Descending |
-        Select-Object -First $TopN |
-        Format-Table Name, @{Label="Size(MB)"; Expression={[math]::Round($_.Length/1MB, 2)}} -AutoSize
+    param([string]$Path='.', [ValidateRange(1,10000)][int]$TopN=10)
+    # Only retain N objects. Traversal still visits all files; selection costs O(files * N).
+    $largest=[System.Collections.Generic.List[System.IO.FileInfo]]::new()
+    Get-ChildItem -LiteralPath $Path -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+        $index=0
+        while ($index -lt $largest.Count -and $largest[$index].Length -ge $_.Length) { $index++ }
+        if ($index -lt $TopN) { $largest.Insert($index, $_); if ($largest.Count -gt $TopN) { $largest.RemoveAt($TopN) } }
+    }
+    $largest | Format-Table Name, @{Label='Size(MB)';Expression={[math]::Round($_.Length/1MB,2)}} -AutoSize
 }
 
 function Edit-Profile {
@@ -601,6 +554,45 @@ function Test-Environment {
     Write-Host "  - 查看完整文档：PowerShell配置文档.md`n" -ForegroundColor Gray
 }
 
+# Capture generated initialization code without unbounded native waits or pipe deadlocks.
+function Invoke-ProfileProcess {
+    param([string]$Name, [string[]]$Arguments=@(), [ValidateRange(50,60000)][int]$TimeoutMs=1500)
+    $command=Get-Command $Name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $command) { return '' }
+    $process=[Diagnostics.Process]::new()
+    $process.StartInfo.FileName=$command.Source
+    $quoted=@(foreach ($argument in $Arguments) {
+        '"' + ([regex]::Replace([regex]::Replace($argument,'(\\*)"','$1$1\"'),'(\\+)$','$1$1')) + '"'
+    })
+    $process.StartInfo.Arguments=$quoted -join ' '
+    $process.StartInfo.UseShellExecute=$false
+    $process.StartInfo.CreateNoWindow=$true
+    $process.StartInfo.RedirectStandardOutput=$true
+    $process.StartInfo.RedirectStandardError=$true
+    $process.StartInfo.StandardOutputEncoding=[Text.UTF8Encoding]::new($false)
+    $process.StartInfo.StandardErrorEncoding=[Text.UTF8Encoding]::new($false)
+    try {
+        $null=$process.Start()
+        $stdout=$process.StandardOutput.ReadToEndAsync()
+        $stderr=$process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit($TimeoutMs)) {
+            try { $process.Kill($true) } catch { $process.Kill() }
+            throw "$Name initialization timed out after $TimeoutMs ms."
+        }
+        if (-not $stdout.Wait(250) -or -not $stderr.Wait(250)) { throw "$Name output did not close." }
+        if ($process.ExitCode -ne 0) { throw "$Name failed ($($process.ExitCode)): $($stderr.Result.Trim())" }
+        return $stdout.Result
+    } finally { $process.Dispose() }
+}
+
+function Enable-Vfox {
+    try {
+        $activation=Invoke-ProfileProcess vfox @('activate','pwsh') -TimeoutMs 3000
+        if ($activation) { Invoke-Expression $activation; $global:VFOX_SKIPPED=$false }
+    } catch { $global:VFOX_SKIPPED=$true; Write-Warning "vfox: $_" }
+}
+function Enable-TerminalIcons { Import-Module Terminal-Icons -ErrorAction Stop }
+
 # Redirected jobs and -NonInteractive sessions should not load prompt/UI integrations.
 $profileInteractive = $Host.Name -eq 'ConsoleHost' -and $env:TERM -ne 'dumb'
 try {
@@ -614,71 +606,65 @@ if ([Environment]::GetCommandLineArgs() | Where-Object {
 }
 if ($env:POWERSHELL_PROFILE_MINIMAL -eq '1' -or -not $profileInteractive) { return }
 
-# Local init output is evaluated in the profile scope so generated functions survive.
-if ($env:POWERSHELL_PROFILE_VFOX -ne '0' -and
-    (Get-Command vfox -CommandType Application -ErrorAction SilentlyContinue)) {
-    try {
-        $profileInit = (& vfox activate pwsh | Out-String)
-        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($profileInit)) {
-            Invoke-Expression $profileInit
-        } else { Write-Warning 'vfox initialization failed.' }
-    } catch { Write-Warning "vfox: $_" }
+# Integrate fd and Catppuccin Mocha theme with live bat/eza preview into FZF
+if (Get-Command fd -CommandType Application -ErrorAction SilentlyContinue) {
+    $env:FZF_DEFAULT_COMMAND = 'fd --type f --hidden --exclude .git --exclude node_modules --exclude .venv'
+    $env:FZF_ALT_C_COMMAND = 'fd --type d --hidden --exclude .git --exclude node_modules --exclude .venv'
 }
 
-# Prompt Theme Initialization: supports Fixed (Catppuccin Mocha), Random, or Starship.
-if ($env:POWERSHELL_THEME_MODE -eq 'starship' -or $env:POWERSHELL_POSH_THEME -eq 'starship') {
-    if (Get-Command starship -CommandType Application -ErrorAction SilentlyContinue) {
-        Invoke-Expression (&starship init powershell)
-    }
-} elseif (Get-Command oh-my-posh -CommandType Application -ErrorAction SilentlyContinue) {
-    $profileTheme = $null
-    $profileThemeCandidates = @()
-    $isRandom = ($env:POWERSHELL_THEME_MODE -eq 'random' -or $env:POWERSHELL_POSH_THEME -eq 'random' -or (-not $env:POWERSHELL_THEME_MODE -and -not $env:POWERSHELL_POSH_THEME))
-    if ($isRandom) {
-        $themesDir = Join-Path $env:USERPROFILE 'oh-my-posh-themes'
-        if (-not (Test-Path $themesDir) -and $env:POSH_THEMES_PATH) { $themesDir = $env:POSH_THEMES_PATH }
-        if (Test-Path $themesDir) {
-            $randomThemes = @(Get-ChildItem -LiteralPath $themesDir -Filter '*.omp.json' -ErrorAction SilentlyContinue)
-            if ($randomThemes.Count -gt 0) {
-                $chosen = $randomThemes | Get-Random
-                $profileTheme = $chosen.FullName
-                $displayTheme = $chosen.BaseName -replace '\.omp$', ''
-                Write-Host "✨ 今日随机主题: $displayTheme ✨" -ForegroundColor Cyan
-            }
+$fzfColors = '--color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 ' +
+             '--color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc ' +
+             '--color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 ' +
+             '--color=selected-bg:#45475a'
+
+$fzfPreview = ''
+if (Get-Command bat -CommandType Application -ErrorAction SilentlyContinue) {
+    $fzfPreview = '--preview "bat --style=numbers --color=always --line-range :500 {}" --preview-window "right:60%:wrap"'
+}
+$env:FZF_DEFAULT_OPTS = "$fzfColors --border=rounded --info=inline --height=80% --layout=reverse --multi $fzfPreview".Trim()
+
+if (Get-Command eza -CommandType Application -ErrorAction SilentlyContinue) {
+    $env:FZF_ALT_C_OPTS = "$fzfColors --border=rounded --info=inline --height=80% --layout=reverse --preview 'eza --tree --level=2 --color=always --icons=always {}' --preview-window 'right:60%:wrap'"
+}
+
+
+if (Get-Command nvim -CommandType Application -ErrorAction SilentlyContinue) { $env:EDITOR='nvim'; $env:VISUAL='nvim' }
+
+
+# vfox is on demand by default. Explicit opt-in still has a bounded activation time.
+if ($env:POWERSHELL_PROFILE_VFOX -eq '1') { Enable-Vfox }
+
+# Deterministic daily theme selection: no cache writes, and the same sorted library gives the same theme that day.
+$profileThemeCandidates=@()
+$themesDir=[IO.Path]::Combine($env:USERPROFILE,'oh-my-posh-themes')
+if (-not [IO.Directory]::Exists($themesDir) -and $env:POSH_THEMES_PATH) { $themesDir=$env:POSH_THEMES_PATH }
+$profileMode=if ($env:POWERSHELL_THEME_MODE) { $env:POWERSHELL_THEME_MODE } else { 'random' }
+if ($profileMode -eq 'starship' -or $env:POWERSHELL_POSH_THEME -eq 'starship') {
+    try { $profileInit=Invoke-ProfileProcess starship @('init','powershell'); if ($profileInit) { Invoke-Expression $profileInit } }
+    catch { Write-Verbose "Starship: $_" }
+} else {
+    if ($profileMode -eq 'random' -and [IO.Directory]::Exists($themesDir)) {
+        $randomThemes=@([IO.Directory]::GetFiles($themesDir,'*.omp.json') | Sort-Object)
+        if ($randomThemes.Count) {
+            $day=[int](Get-Date -Format yyyyMMdd)
+            $profileThemeCandidates += $randomThemes[$day % $randomThemes.Count]
         }
-    } elseif ($env:POWERSHELL_POSH_THEME -and $env:POWERSHELL_POSH_THEME -ne 'random') {
+    } elseif ($env:POWERSHELL_POSH_THEME -and $env:POWERSHELL_POSH_THEME -notin @('random','starship')) {
         $profileThemeCandidates += $env:POWERSHELL_POSH_THEME
-    } else {
-        # Prefer Catppuccin Mocha to match Windows Terminal color scheme
-        $profileThemeCandidates += Join-Path $env:USERPROFILE 'oh-my-posh-themes\catppuccin_mocha.omp.json'
-        if ($env:POSH_THEMES_PATH) {
-            $profileThemeCandidates += Join-Path $env:POSH_THEMES_PATH 'catppuccin_mocha.omp.json'
-            $profileThemeCandidates += Join-Path $env:POSH_THEMES_PATH 'jandedobbeleer.omp.json'
-        }
-        $profileThemeCandidates += Join-Path $env:USERPROFILE 'oh-my-posh-themes\jandedobbeleer.omp.json'
     }
-    if (-not $profileTheme) {
-        foreach ($candidate in $profileThemeCandidates) {
-            if (Test-Path -LiteralPath $candidate -PathType Leaf) {
-                $profileTheme = (Resolve-Path -LiteralPath $candidate).ProviderPath
-                break
-            }
-        }
-    }
-    if ($profileTheme) {
+    if ($themesDir) { $profileThemeCandidates += [IO.Path]::Combine($themesDir,'catppuccin_mocha.omp.json') }
+    if ($env:POSH_THEMES_PATH) { $profileThemeCandidates += [IO.Path]::Combine($env:POSH_THEMES_PATH,'catppuccin_mocha.omp.json') }
+    foreach ($candidate in @($profileThemeCandidates | Select-Object -Unique)) {
+        if (-not [IO.File]::Exists($candidate)) { continue }
         try {
-            $profileInit = (& oh-my-posh init pwsh --config $profileTheme | Out-String)
-            if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($profileInit)) {
-                Invoke-Expression $profileInit
-            } else {
-                $fallbackTheme = Join-Path $env:USERPROFILE 'oh-my-posh-themes\catppuccin_mocha.omp.json'
-                if (Test-Path $fallbackTheme) {
-                    Invoke-Expression (& oh-my-posh init pwsh --config $fallbackTheme | Out-String)
-                }
-            }
-        } catch { Write-Warning "Oh My Posh: $_" }
-    } else {
-        Write-Verbose 'No local Oh My Posh theme. Set POWERSHELL_POSH_THEME to a local .omp.json file.'
+            # Reject malformed local JSON before invoking the prompt engine.
+            $null=[IO.File]::ReadAllText($candidate) | ConvertFrom-Json -ErrorAction Stop
+            $profileInit=Invoke-ProfileProcess oh-my-posh @('init','pwsh','--config',$candidate)
+            if (-not $profileInit) { continue }
+            Invoke-Expression $profileInit
+            if ($env:POWERSHELL_PROFILE_TIPS -eq '1') { Write-Host ('Theme: '+[IO.Path]::GetFileNameWithoutExtension($candidate)) }
+            break
+        } catch { Write-Verbose "Oh My Posh: $_" }
     }
 }
 
@@ -686,8 +672,8 @@ if ($env:POWERSHELL_THEME_MODE -eq 'starship' -or $env:POWERSHELL_POSH_THEME -eq
 $profileZoxideReady = $false
 if (Get-Command zoxide -CommandType Application -ErrorAction SilentlyContinue) {
     try {
-        $profileInit = (& zoxide init powershell | Out-String)
-        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($profileInit)) {
+        $profileInit = Invoke-ProfileProcess zoxide @('init','powershell')
+        if (-not [string]::IsNullOrWhiteSpace($profileInit)) {
             Invoke-Expression $profileInit
             $profileZoxideReady = $true
         } else { Write-Warning 'zoxide initialization failed.' }
@@ -696,7 +682,7 @@ if (Get-Command zoxide -CommandType Application -ErrorAction SilentlyContinue) {
 
 # Terminal-Icons adds rich icons to directory listings. Enabled by default for interactive sessions.
 # Set $env:POWERSHELL_PROFILE_ICONS = '0' to disable if ultra-fast startup is preferred.
-if ($env:POWERSHELL_PROFILE_ICONS -ne '0') {
+if ($env:POWERSHELL_PROFILE_ICONS -eq '1') {
     Import-Module Terminal-Icons -ErrorAction SilentlyContinue
 }
 
@@ -751,7 +737,7 @@ if (Get-Module -ListAvailable PSReadLine) {
 
 # Interactive startup banner: displays Fastfetch ASCII art and hardware telemetry.
 # Set $env:POWERSHELL_PROFILE_BANNER = '0' to disable if a silent prompt is preferred.
-if ($env:POWERSHELL_PROFILE_BANNER -ne '0' -and $env:POWERSHELL_PROFILE_MINIMAL -ne '1') {
+if ($env:POWERSHELL_PROFILE_BANNER -eq '1') {
     Show-SystemInfo
-    Show-FeatureTips
 }
+if ($env:POWERSHELL_PROFILE_TIPS -eq '1') { Show-FeatureTips }

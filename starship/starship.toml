@@ -1,11 +1,12 @@
+format = "$directory$git_branch$git_status$git_state$cmd_duration$line_break$character"
 # =====================================================
 # 性能优化与超时控制 (Windows NTFS / 杀毒环境调优)
 # =====================================================
 # 提高目录扫描超时时间（单位：毫秒，Windows 下建议 120~200，彻底消除 Scanning current directory timed out 告警）
-scan_timeout = 200
+scan_timeout = 30
 
 # 提高命令执行超时时间（单位：毫秒，默认 500）
-command_timeout = 1000
+command_timeout = 500
 
 # =====================================================
 # 🌌⚡ 赛博朋克·霓虹渐变主题 Starship

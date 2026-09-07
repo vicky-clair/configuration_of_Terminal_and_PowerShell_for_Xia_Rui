@@ -11,7 +11,8 @@ param(
     [ValidateSet('Random', 'Fixed', 'Starship')]
     [string]$ThemeMode = 'Random',
     [switch]$ApplyWindowsTerminalSettings,
-    [switch]$NonInteractive
+    [switch]$NonInteractive,
+    [switch]$SkipBackup
 )
 
 $ErrorActionPreference = 'Stop'
@@ -26,7 +27,7 @@ Write-Host "============================================================" -Foreg
 Initialize-SetupEnvironment
 
 # 2. 全自动前置备份：捕获当前所有终端配置，支持一键无损回退
-Backup-AllTerminalConfigurations
+if (-not $SkipBackup) { $null=Backup-AllTerminalConfigurations -Components @('PowerShell7','Terminal','Shared') }
 
 # 3. 检查并安装 Scoop 与必要仓库
 Write-Host "`n[1/5] 检查并准备 Scoop 包管理器及仓库..." -ForegroundColor Yellow
@@ -56,7 +57,7 @@ Install-ScoopAppsIfMissing $coreApps
 
 # 4. 安装 PowerShell 核心模块
 Write-Host "`n[3/5] 检查并安装 PowerShell Gallery 模块插件..." -ForegroundColor Yellow
-Install-PSModulesIfMissing @('PSReadLine', 'Terminal-Icons', 'PSFzf')
+Install-PSModulesIfMissing @('PSReadLine', 'Terminal-Icons', 'PSFzf') -Edition Core
 
 # 5. 确保 Oh My Posh 离线主题库与 Fastfetch 专属横幅就绪
 Write-Host "`n[4/5] 检查本地主题与 Fastfetch 专属配置资产..." -ForegroundColor Yellow
@@ -89,7 +90,7 @@ Write-Host "`n已选择提示符模式: [$ThemeMode]" -ForegroundColor Cyan
 
 # 7. 部署与配置 PowerShell 7 Profile
 Write-Host "`n[5/5] 部署配置文件至当前用户 Profile..." -ForegroundColor Yellow
-$profileTarget = Join-Path $env:USERPROFILE 'Documents\PowerShell\Microsoft.PowerShell_profile.ps1'
+$profileTarget = Join-Path (Get-TerminalDocumentsPath) 'PowerShell/Microsoft.PowerShell_profile.ps1'
 $profileTargetDir = Split-Path -Parent $profileTarget
 if (-not (Test-Path $profileTargetDir)) {
     New-Item -ItemType Directory -Path $profileTargetDir -Force | Out-Null
@@ -107,16 +108,14 @@ $header = @"
 # ============================================================================
 # 用户环境模式变量 (由 Install-PowerShell7.ps1 自动生成)
 # ============================================================================
-`$env:POWERSHELL_THEME_MODE = '$($ThemeMode.ToLowerInvariant())'
-`$env:POWERSHELL_PROFILE_BANNER = '1'
-`$env:POWERSHELL_PROFILE_ICONS = '1'
+if (-not `$env:POWERSHELL_THEME_MODE) { `$env:POWERSHELL_THEME_MODE = '$($ThemeMode.ToLowerInvariant())' }
 
 "@
 
 $sourceContent = Get-Content -LiteralPath $profileSource -Raw -Encoding UTF8
 $finalContent = $header + $sourceContent
 $utf8WithBom = New-Object System.Text.UTF8Encoding $true
-[System.IO.File]::WriteAllText($profileTarget, $finalContent, $utf8WithBom)
+Set-TerminalText $profileTarget $finalContent -Bom
 
 Write-Host "[OK] PowerShell 7 Profile 已成功安装至: $profileTarget" -ForegroundColor Green
 

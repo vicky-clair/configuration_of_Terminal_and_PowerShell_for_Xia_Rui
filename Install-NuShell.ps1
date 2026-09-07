@@ -28,7 +28,7 @@ Initialize-SetupEnvironment
 
 # 2. 全自动前置统合备份
 if (-not $SkipBackup) {
-    $null = Backup-AllTerminalConfigurations
+    $null = Backup-AllTerminalConfigurations -Components @('NuShell','Terminal','Shared')
 }
 
 # 3. 安装 NuShell 及核心工具链 (Choco 2次重试 -> 自动配置 WinGet 仓库与安装 -> Scoop 兜底)
@@ -73,7 +73,7 @@ $env.LC_ALL = "zh_CN.UTF-8"
 mkdir ($nu.data-dir | path join "vendor/autoload")
 '@
 
-[System.IO.File]::WriteAllText($envNuPath, $envNuContent, $utf8NoBom)
+Set-TerminalText $envNuPath $envNuContent
 Write-Host "[OK] 已生成 NuShell 环境配置: $envNuPath" -ForegroundColor Green
 
 # 5. 配置 Starship & Zoxide 自动加载插件 (vendor/autoload)
@@ -83,12 +83,13 @@ $starshipCmd = Get-Command starship -ErrorAction SilentlyContinue
 if ($starshipCmd) {
     try {
         $starshipScript = & $starshipCmd.Source init nu 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $starshipScript) { throw 'Starship generation failed.' }
         if ($starshipScript) {
-            [System.IO.File]::WriteAllText($starshipNuPath, ($starshipScript -join "`n"), $utf8NoBom)
+            Set-TerminalText $starshipNuPath ($starshipScript -join "`n")
             Write-Host "[OK] 已配置 NuShell Starship 提示符: $starshipNuPath" -ForegroundColor Green
         }
     } catch {
-        Write-Warning "[!] 生成 NuShell Starship 脚本异常: $_"
+        throw "Starship generation failed: $_"
     }
 } else {
     Write-Host "[*] 未在当前 PATH 中检测到 Starship，跳过 Starship 自动加载生成" -ForegroundColor DarkGray
@@ -99,12 +100,13 @@ $zoxideCmd = Get-Command zoxide -ErrorAction SilentlyContinue
 if ($zoxideCmd) {
     try {
         $zoxideScript = & $zoxideCmd.Source init nushell 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $zoxideScript) { throw 'Zoxide generation failed.' }
         if ($zoxideScript) {
-            [System.IO.File]::WriteAllText($zoxideNuPath, ($zoxideScript -join "`n"), $utf8NoBom)
+            Set-TerminalText $zoxideNuPath ($zoxideScript -join "`n")
             Write-Host "[OK] 已配置 NuShell Zoxide 插件: $zoxideNuPath" -ForegroundColor Green
         }
     } catch {
-        Write-Warning "[!] 生成 NuShell Zoxide 脚本异常: $_"
+        throw "Zoxide generation failed: $_"
     }
 }
 
@@ -133,7 +135,7 @@ $env.config = ($env.config? | default {} | merge {
 })
 
 # 2. 启动横幅 (Fastfetch)
-if (which fastfetch | is-not-empty) {
+if $nu.is-interactive and (($env.PROFILE_BANNER? | default "0") == "1") and (which fastfetch | is-not-empty) {
     let conf_file = ($nu.home-path | path join ".config/fastfetch/config.jsonc")
     if ($conf_file | path exists) {
         ^fastfetch -c $conf_file
@@ -143,6 +145,7 @@ if (which fastfetch | is-not-empty) {
 }
 
 # 3. 现代化功能就绪卡片
+if $nu.is-interactive and (($env.PROFILE_TIPS? | default "0") == "1") {
 if (which yazi | is-not-empty) {
     print "  ✓ yazi 文件管理器已集成 (命令: yazi)"
 }
@@ -162,17 +165,14 @@ if (which fastfetch | is-not-empty) {
     print "  ✓ fastfetch 系统信息工具已启动"
 }
 print ""
+}
 
 # 4. 现代化命令行别名 (Eza, Bat, Git)
-if (which eza | is-not-empty) {
-    alias ll = ^eza -l --icons --git --header
-    alias la = ^eza -la --icons --git --header
-    alias lt = ^eza --tree --level=2 --icons
-}
+alias ll = ^eza -l --icons --git --header
+alias la = ^eza -la --icons --git --header
+alias lt = ^eza --tree --level=2 --icons
 
-if (which bat | is-not-empty) {
-    alias cat = ^bat --paging=never
-}
+alias cat = ^bat --paging=never
 
 alias g = git
 alias gst = git status
@@ -186,7 +186,7 @@ alias lzg = lazygit
 alias lzd = lazydocker
 '@
 
-[System.IO.File]::WriteAllText($configNuPath, $configNuContent, $utf8NoBom)
+Set-TerminalText $configNuPath $configNuContent
 Write-Host "[OK] 已生成 NuShell 主配置: $configNuPath" -ForegroundColor Green
 
 # 7. 注册 Windows Terminal NuShell 配置文件 (若已安装 WT)
@@ -213,7 +213,7 @@ foreach ($wtPath in @($wtStable, $wtPreview)) {
                         hidden = $false
                     }
                     $wtJson.profiles.list += $newProfile
-                    $wtJson | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $wtPath -Encoding UTF8
+                    Set-TerminalText $wtPath ($wtJson | ConvertTo-Json -Depth 100)
                     Write-Host "[OK] 已在 Windows Terminal 中注册 NuShell 终端配置项" -ForegroundColor Green
                 }
             }

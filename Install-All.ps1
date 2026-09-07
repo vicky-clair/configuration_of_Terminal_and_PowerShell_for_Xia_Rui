@@ -22,7 +22,8 @@ param(
     [switch]$IncludeMSYS2,
     [switch]$All,
     [switch]$ApplyWindowsTerminalSettings,
-    [switch]$NonInteractive
+    [switch]$NonInteractive,
+    [string]$Msys2InstallPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,12 +35,20 @@ Write-Host "[+] 开始执行 Windows 全终端现代化与美化一键集成部�
 Write-Host "============================================================" -ForegroundColor Cyan
 
 # 全自动前置统合备份：捕获当前所有终端配置，支持一键无损回退
-$null = Backup-AllTerminalConfigurations
+$components=@('Shared')
+if (-not $SkipPowerShell7) { $components += @('PowerShell7','Terminal') }
+if (-not $SkipWinPowerShell51) { $components += 'WinPS51' }
+if (-not $SkipCmd) { $components += 'Cmd' }
+if ($IncludeNuShell -or $All) { $components += @('NuShell','Terminal') }
+if ($IncludeMSYS2 -or $All) { $components += 'Terminal' }
+# MSYS2 captures its resolved root immediately before modifying its configuration.
+$backup = Backup-AllTerminalConfigurations -Components $components
+
 
 # 1. PowerShell 7
 if (-not $SkipPowerShell7) {
     Write-Host "`n>>> [1/5] 执行 PowerShell 7 环境安装与美化配置..." -ForegroundColor Yellow
-    $ps7Params = @{}
+    $ps7Params = @{SkipBackup=$true}
     if ($ThemeMode) { $ps7Params['ThemeMode'] = $ThemeMode }
     if ($PSBoundParameters.ContainsKey('ApplyWindowsTerminalSettings')) {
         $ps7Params['ApplyWindowsTerminalSettings'] = $ApplyWindowsTerminalSettings
@@ -53,7 +62,7 @@ if (-not $SkipPowerShell7) {
 # 2. Windows PowerShell 5.1
 if (-not $SkipWinPowerShell51) {
     Write-Host "`n>>> [2/5] 执行 Windows PowerShell 5.1 环境配置与固定主题..." -ForegroundColor Yellow
-    & (Join-Path $projectRoot 'Install-WinPowerShell51.ps1')
+    & (Join-Path $projectRoot 'Install-WinPowerShell51.ps1') -SkipBackup
 } else {
     Write-Host "`n>>> [2/5] 跳过 Windows PowerShell 5.1 配置 (-SkipWinPowerShell51)" -ForegroundColor DarkGray
 }
@@ -61,7 +70,7 @@ if (-not $SkipWinPowerShell51) {
 # 3. CMD (命令提示符)
 if (-not $SkipCmd) {
     Write-Host "`n>>> [3/5] 执行 CMD (命令提示符) Clink + Starship 现代化配置..." -ForegroundColor Yellow
-    & (Join-Path $projectRoot 'Install-Cmd.ps1')
+    & (Join-Path $projectRoot 'Install-Cmd.ps1') -SkipBackup
 } else {
     Write-Host "`n>>> [3/5] 跳过 CMD 配置 (-SkipCmd)" -ForegroundColor DarkGray
 }
@@ -77,7 +86,7 @@ if ($IncludeNuShell -or $All) {
 # 5. MSYS2 (可选或 -All)
 if ($IncludeMSYS2 -or $All) {
     Write-Host "`n>>> [5/5] 执行 MSYS2 现代化开发终端安装与美化配置..." -ForegroundColor Yellow
-    & (Join-Path $projectRoot 'Install-MSYS2.ps1') -SkipBackup
+    & (Join-Path $projectRoot 'Install-MSYS2.ps1') -Msys2InstallPath $Msys2InstallPath -ParentSnapshot $backup
 } else {
     Write-Host "`n>>> [5/5] 未指定 -IncludeMSYS2 或 -All，跳过 MSYS2 配置" -ForegroundColor DarkGray
 }
