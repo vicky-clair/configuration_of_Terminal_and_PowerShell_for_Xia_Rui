@@ -1,4 +1,4 @@
-# Dot-source this file from $PROFILE. No downloads or package installs at startup.
+﻿# Dot-source this file from $PROFILE. No downloads or package installs at startup.
 
 # Scoop normally manages PATH itself. Repair a missing entry without duplicating it.
 $profileScoopRoot = if ($env:SCOOP) { $env:SCOOP } else { [IO.Path]::Combine($env:USERPROFILE, 'scoop') }
@@ -692,7 +692,8 @@ if ($profileMode -eq 'starship' -or $env:POWERSHELL_POSH_THEME -eq 'starship') {
         try {
             # Reject malformed local JSON before invoking the prompt engine.
             $null=[IO.File]::ReadAllText($candidate) | ConvertFrom-Json -ErrorAction Stop
-            $profileInit=Invoke-ProfileProcess oh-my-posh @('init','pwsh','--config',$candidate)
+            $poshShell = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh' } else { 'powershell' }
+            $profileInit=Invoke-ProfileProcess oh-my-posh @('init',$poshShell,'--config',$candidate)
             if (-not $profileInit) { continue }
             Invoke-Expression $profileInit
             if ($env:POWERSHELL_PROFILE_TIPS -ne '0') {

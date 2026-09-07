@@ -4,13 +4,14 @@
 .DESCRIPTION
     面向 Windows 10/11 内置 PowerShell 及 Windows 8.1 (WMF 5.1)。
     自动配置 Scoop 与高效工具链、修复 UTF-8 控制台中文输出、
-    固定配置高颜值极速 Starship 赛博朋克主题或轻量 Oh My Posh 主题，兼顾颜值与启动性能。
+    支持随机丰富主题 (Oh My Posh)、固定 Catppuccin Mocha 主题或极速 Starship 赛博朋克主题，兼顾颜值与启动性能。
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('Starship', 'CatppuccinMocha')]
-    [string]$Theme = 'Starship',
-    [switch]$SkipBackup
+    [ValidateSet('Random', 'CatppuccinMocha', 'Starship')]
+    [string]$Theme = 'Random',
+    [switch]$SkipBackup,
+    [switch]$NonInteractive
 )
 
 $ErrorActionPreference = 'Stop'
@@ -46,13 +47,13 @@ $appsToInstall = @(
     'bat',
     'nerd-fonts/JetBrainsMono-NF'
 )
-if ($Theme -eq 'CatppuccinMocha') {
+if ($Theme -in @('CatppuccinMocha', 'Random')) {
     $appsToInstall += 'oh-my-posh'
 }
 Install-ScoopAppsIfMissing $appsToInstall
 Ensure-FastfetchConfigured
 Ensure-StarshipConfigured
-if ($Theme -eq 'CatppuccinMocha') {
+if ($Theme -in @('CatppuccinMocha', 'Random')) {
     $null = Ensure-OhMyPoshThemes
 }
 
@@ -75,11 +76,21 @@ if (Test-Path -LiteralPath $winPsProfileTarget) {
     Write-Host "[备份] 已备份现有 Profile: $backupPath" -ForegroundColor DarkGray
 }
 
-$mode=if ($Theme -eq 'Starship') { 'starship' } else { 'fixed' }
-$header="if (-not `$env:POWERSHELL_THEME_MODE) { `$env:POWERSHELL_THEME_MODE='$mode' }`n"
-$winPsContent=$header + [IO.File]::ReadAllText((Join-Path $projectRoot 'Microsoft.PowerShell_profile.ps1'))
+$mode = switch ($Theme) {
+    'Starship'        { 'starship' }
+    'CatppuccinMocha' { 'fixed' }
+    default           { 'random' }
+}
+$header = @"
+# ============================================================================
+# 用户环境模式变量 (由 Install-WinPowerShell51.ps1 自动生成)
+# ============================================================================
+if (-not `$env:POWERSHELL_THEME_MODE) { `$env:POWERSHELL_THEME_MODE = '$mode' }
 
-$utf8WithBom = New-Object System.Text.UTF8Encoding $true
+"@
+$sourceContent = [IO.File]::ReadAllText((Join-Path $projectRoot 'Microsoft.PowerShell_profile.ps1'), [System.Text.Encoding]::UTF8)
+$winPsContent = $header + $sourceContent
+
 Set-TerminalText $winPsProfileTarget $winPsContent -Bom
 
 Write-Host "[OK] Windows PowerShell 5.1 Profile 已成功安装至: $winPsProfileTarget" -ForegroundColor Green
