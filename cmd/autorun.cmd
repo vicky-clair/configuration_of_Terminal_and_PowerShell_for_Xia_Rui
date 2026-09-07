@@ -36,8 +36,8 @@ rem 2. 通过 Doskey 注入现代化 CLI 快捷别名 (eza / bat / ripgrep / git
 
 rem Replaced at installation with a trusted absolute executable path; absent tools stay disabled.
 __CLINK_INIT__
-if not "%CMD_PROFILE_BANNER%"=="1" goto :skip_banner
+if "%CMD_PROFILE_BANNER%"=="0" goto :skip_banner
 __FASTFETCH_INIT__
 :skip_banner
-if "%CMD_PROFILE_TIPS%"=="1" echo Terminal shortcuts: ll, la, gst, lg, lzd
+if not "%CMD_PROFILE_TIPS%"=="0" echo Terminal shortcuts: ll, la, gst, lg, lzd
 endlocal

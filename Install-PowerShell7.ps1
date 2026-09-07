@@ -3,7 +3,7 @@
     PowerShell 7 (pwsh) 现代化美化环境一键安装脚本
 .DESCRIPTION
     自动配置 Scoop 与所需软件依赖、PowerShell 模块、Nerd Font 字体，
-    并支持交互选择【固定主题 (Catppuccin Mocha)】或【每日随机主题】或【Starship 赛博朋克主题】。
+    并支持交互选择【固定主题 (Catppuccin Mocha)】或【每次启动随机主题】或【Starship 赛博朋克主题】。
     全面兼容 Windows 11、Windows 10 及 Windows 8.1。
 #>
 [CmdletBinding()]
@@ -66,7 +66,7 @@ Write-Host "[OK] 本地主题库已就绪 (共找到 $themeCount 个主题)" -Fo
 Ensure-FastfetchConfigured
 Ensure-StarshipConfigured
 
-# 6. 交互式主题选择 (回车默认: Random 每日随机主题)
+# 6. 交互式主题选择 (回车默认: Random 每次启动随机主题)
 if ($PSBoundParameters.ContainsKey('ThemeMode')) {
     # 用户显式指定了参数
 } elseif ($NonInteractive) {
@@ -74,7 +74,7 @@ if ($PSBoundParameters.ContainsKey('ThemeMode')) {
 } else {
     Write-Host "`n============================================================" -ForegroundColor Cyan
     Write-Host "[*] 请选择 PowerShell 7 提示符主题模式：" -ForegroundColor Yellow
-    Write-Host "  [1] 每日随机主题 (推荐：启动时从本地 120+ 官方主题库智能随机抽取，每天新体验，回车默认)" -ForegroundColor Green
+    Write-Host "  [1] 每次启动随机主题 (推荐：启动时从本地 120+ 官方主题库智能随机抽取，每次启动新体验，回车默认)" -ForegroundColor Green
     Write-Host "  [2] 固定主题 (Catppuccin Mocha，与 Windows Terminal 深度契合，极速秒开)" -ForegroundColor Cyan
     Write-Host "  [3] Starship 赛博朋克渐变主题 (与 CMD / NuShell 保持风格完全一致)" -ForegroundColor Magenta
     Write-Host "============================================================" -ForegroundColor Cyan

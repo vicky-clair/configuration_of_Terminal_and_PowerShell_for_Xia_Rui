@@ -1,4 +1,4 @@
-﻿# Dot-source this file from $PROFILE. No downloads or package installs at startup.
+# Dot-source this file from $PROFILE. No downloads or package installs at startup.
 
 # Scoop normally manages PATH itself. Repair a missing entry without duplicating it.
 $profileScoopRoot = if ($env:SCOOP) { $env:SCOOP } else { [IO.Path]::Combine($env:USERPROFILE, 'scoop') }
@@ -203,7 +203,7 @@ function Pad-DisplayRight([string]$text, [int]$totalWidth) {
 # Feature status card: displays active CLI tool integrations with real checks and warnings
 # Set $env:POWERSHELL_PROFILE_TIPS = '0' to disable.
 function Show-FeatureTips {
-    if ($env:POWERSHELL_PROFILE_MINIMAL -eq '1' -or $env:POWERSHELL_PROFILE_BANNER -eq '0' -or $env:POWERSHELL_PROFILE_TIPS -eq '0') { return }
+    if ($env:POWERSHELL_PROFILE_MINIMAL -eq '1' -or $env:POWERSHELL_PROFILE_TIPS -eq '0') { return }
 
     $features = [System.Collections.Generic.List[object]]::new()
     $warnings = [System.Collections.Generic.List[object]]::new()
@@ -231,7 +231,9 @@ function Show-FeatureTips {
         $missing = @()
         if (-not $hasBat) { $missing += 'bat' }
         if (-not $hasEza) { $missing += 'eza' }
-        $warnings.Add(@{ Name = ($missing -join '/'); Message = '画中画预览已降级'; Hint = "scoop install $($missing -join ' ')" })
+        $missingName = if ($missing.Count) { $missing -join '/' } else { 'bat+eza' }
+        $missingHint = if ($missing.Count) { "scoop install $($missing -join ' ')" } else { '检查 FZF 预览参数' }
+        $warnings.Add(@{ Name = $missingName; Message = '画中画预览已降级'; Hint = $missingHint })
     }
 
     # 4. fzf & PSFzf
@@ -678,8 +680,7 @@ if ($profileMode -eq 'starship' -or $env:POWERSHELL_POSH_THEME -eq 'starship') {
     if ($profileMode -eq 'random' -and [IO.Directory]::Exists($themesDir)) {
         $randomThemes=@([IO.Directory]::GetFiles($themesDir,'*.omp.json') | Sort-Object)
         if ($randomThemes.Count) {
-            $day=[int](Get-Date -Format yyyyMMdd)
-            $profileThemeCandidates += $randomThemes[$day % $randomThemes.Count]
+            $profileThemeCandidates += Get-Random -InputObject $randomThemes
         }
     } elseif ($env:POWERSHELL_POSH_THEME -and $env:POWERSHELL_POSH_THEME -notin @('random','starship')) {
         $profileThemeCandidates += $env:POWERSHELL_POSH_THEME
@@ -694,7 +695,10 @@ if ($profileMode -eq 'starship' -or $env:POWERSHELL_POSH_THEME -eq 'starship') {
             $profileInit=Invoke-ProfileProcess oh-my-posh @('init','pwsh','--config',$candidate)
             if (-not $profileInit) { continue }
             Invoke-Expression $profileInit
-            if ($env:POWERSHELL_PROFILE_TIPS -eq '1') { Write-Host ('Theme: '+[IO.Path]::GetFileNameWithoutExtension($candidate)) }
+            if ($env:POWERSHELL_PROFILE_TIPS -ne '0') {
+                $themeDisplayName = [IO.Path]::GetFileNameWithoutExtension($candidate) -replace '\.omp$', ''
+                Write-Host ('✨ 当前主题: ' + $themeDisplayName + ' ✨') -ForegroundColor Cyan
+            }
             break
         } catch { Write-Verbose "Oh My Posh: $_" }
     }
@@ -714,7 +718,7 @@ if (Get-Command zoxide -CommandType Application -ErrorAction SilentlyContinue) {
 
 # Terminal-Icons adds rich icons to directory listings. Enabled by default for interactive sessions.
 # Set $env:POWERSHELL_PROFILE_ICONS = '0' to disable if ultra-fast startup is preferred.
-if ($env:POWERSHELL_PROFILE_ICONS -eq '1') {
+if ($env:POWERSHELL_PROFILE_ICONS -ne '0') {
     Import-Module Terminal-Icons -ErrorAction SilentlyContinue
 }
 
@@ -772,7 +776,7 @@ if ($env:POWERSHELL_PROFILE_VFOX -eq '1') { Enable-Vfox -TimeoutMs 3000 }
 
 # Interactive startup banner: displays Fastfetch ASCII art and hardware telemetry.
 # Set $env:POWERSHELL_PROFILE_BANNER = '0' to disable if a silent prompt is preferred.
-if ($env:POWERSHELL_PROFILE_BANNER -eq '1') {
+if ($env:POWERSHELL_PROFILE_BANNER -ne '0') {
     Show-SystemInfo
 }
-if ($env:POWERSHELL_PROFILE_TIPS -eq '1') { Show-FeatureTips }
+if ($env:POWERSHELL_PROFILE_TIPS -ne '0') { Show-FeatureTips }

@@ -12,7 +12,7 @@
 <p align="center">
   <b>支持按需加载与救援备份的 Windows 全终端现代化与美化生产力套件。</b><br>
   涵盖 Windows Terminal、PowerShell 7、Windows PowerShell 5.1、CMD、NuShell 以及 MSYS2。<br>
-  配备<b>包管理失败检查与容错</b>、<b>PowerShell 7 每日随机主题</b>、<b>配置救援快照与单文件原子替换</b>以及<b>CMD 防工作目录劫持加固</b>。
+  配备<b>包管理失败检查与容错</b>、<b>PowerShell 7 每次启动随机主题</b>、<b>配置救援快照与单文件原子替换</b>以及<b>CMD 防工作目录劫持加固</b>。
 </p>
 
 ---
@@ -45,9 +45,9 @@
   - **两阶段救援备份**：回退前对当前配置生成 `pre-rollback-<guid>` 副本，失败时报告状态与救援目录；
   - **单文件替换与并发检测**：同目录临时文件与 `[IO.File]::Replace` 避免直接截断已有文件；整个恢复不是多文件和注册表事务，失败时可能部分完成。支持重定向 `Documents` 目录。
 
-- 🎲 **PowerShell 7 默认“每日随机主题”（每日新鲜感，杜绝审美疲劳）**
+- 🎲 **PowerShell 7 默认“每次启动随机主题”（启动时随机抽取本地主题）**
   - **120+ 官方精美离线主题库**：安装时自动同步全量 Oh-My-Posh 官方主题至本地 `~/oh-my-posh-themes/`，**纯本地毫秒级随机抽取，启动零网络等待**；
-  - **直观反馈与优雅提示**：每次启动终端顶部展示 `✨ 今日随机主题: <ThemeName> ✨`；
+  - **直观反馈与优雅提示**：每次启动终端顶部展示 `✨ 当前随机主题: <ThemeName> ✨`；
   - **双层防崩安全降级**：若抽取的第三方主题在特定环境下格式解析异常，自动无缝降级至经典内置 Catppuccin Mocha 主题，终端绝不报错；
   - **自由随时切换**：随时支持一键切换为【固定主题 (Catppuccin Mocha)】或【Starship 赛博朋克极速主题】。
 
@@ -122,7 +122,7 @@ cd configuration_of_Terminal_and_PowerShell_for_Xia_Rui
 根据您的需求选择总装方式：
 ```powershell
 # 1. 安装核心三终端（PowerShell 7 + Windows PowerShell 5.1 + CMD）：
-# 默认配置 PowerShell 7 每日随机主题
+# 默认配置 PowerShell 7 每次启动随机主题
 pwsh -File .\Install-All.ps1
 
 # 2. 一步到位安装全部 5 种终端（包含 NuShell 与 MSYS2）：
@@ -140,7 +140,7 @@ powershell.exe -ExecutionPolicy Bypass -File .\Install-All.ps1 -All
 
 | 想要配置的终端 | 执行命令 | 交互与特性 |
 | :--- | :--- | :--- |
-| **PowerShell 7** | `pwsh -File .\Install-PowerShell7.ps1` | **直接回车默认采用 [1] 每日随机主题**，亦可输入 `2` 选择 Catppuccin 固定主题或 `3` Starship |
+| **PowerShell 7** | `pwsh -File .\Install-PowerShell7.ps1` | **直接回车默认采用 [1] 每次启动随机主题**，亦可输入 `2` 选择 Catppuccin 固定主题或 `3` Starship |
 | **Windows PowerShell 5.1** | `powershell.exe -ExecutionPolicy Bypass -File .\Install-WinPowerShell51.ps1` | 配置 UTF-8 编码，默认加载 Starship 主题 |
 | **CMD (命令提示符)** | `pwsh -File .\Install-Cmd.ps1` | 自动挂载 Clink 补全与 Starship 提示符（支持 `-Uninstall` 卸载） |
 | **NuShell** | `pwsh -File .\Install-NuShell.ps1` | 自动挂载 `starship.nu` 提示符与 `zoxide.nu` 目录快跳，配置 Fastfetch 横幅 |
@@ -150,10 +150,10 @@ powershell.exe -ExecutionPolicy Bypass -File .\Install-All.ps1 -All
 
 ## 🎨 PowerShell 7 主题模式自由切换
 
-PowerShell 7 默认启用**每日随机主题**，如果您希望切换模式，可以随时在终端中运行：
+PowerShell 7 默认启用**每次启动随机主题**，如果您希望切换模式，可以随时在终端中运行：
 
 ```powershell
-# 1. 切换为每日随机主题（默认，启动输出 ✨ 今日随机主题: <ThemeName> ✨）
+# 1. 切换为每次启动随机主题（默认，启动输出 ✨ 当前随机主题: <ThemeName> ✨）
 $env:POWERSHELL_THEME_MODE = 'random'
 
 # 2. 切换为固定经典 Catppuccin Mocha 主题
@@ -217,7 +217,7 @@ powershell.exe -File .\Restore-All.ps1
 您可以在 `$PROFILE` 中随时设置以下环境变量以控制功能启闭：
 
 ```powershell
-# 1. 终端美化主题模式 ('random' 每日随机 / 'fixed' 固定经典 / 'starship' 极速)
+# 1. 终端美化主题模式 ('random' 每次启动随机 / 'fixed' 固定经典 / 'starship' 极速)
 $env:POWERSHELL_THEME_MODE = 'random'
 
 # 2. 极简模式（'1' 跳过外部工具探测和 UI 初始化，保留基础配置与便利函数）

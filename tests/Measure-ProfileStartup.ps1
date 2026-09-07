@@ -3,7 +3,7 @@ $env:TERM='xterm-256color'
 $env:POWERSHELL_THEME_MODE='fixed'
 $env:POWERSHELL_PROFILE_MINIMAL=if ($Mode -eq 'minimal') { '1' } else { '0' }
 foreach ($name in @('POWERSHELL_PROFILE_VFOX','POWERSHELL_PROFILE_ICONS','POWERSHELL_PROFILE_BANNER','POWERSHELL_PROFILE_TIPS')) {
-    [Environment]::SetEnvironmentVariable($name, $(if ($Mode -eq 'full') { '1' } else { '0' }))
+    [Environment]::SetEnvironmentVariable($name, $(if ($Mode -eq 'full') { '1' } else { $null }))
 }
 $Error.Clear()
 $watch=[Diagnostics.Stopwatch]::StartNew()
