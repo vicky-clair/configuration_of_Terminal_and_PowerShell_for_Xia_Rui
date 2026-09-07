@@ -3,16 +3,16 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Windows%2011%20|%2010%20|%208.1-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Platform" />
   <img src="https://img.shields.io/badge/Shell-PowerShell%207%20|%20WinPS%205.1%20|%20CMD%20|%20NuShell%20|%20MSYS2-5391FE?style=for-the-badge&logo=powershell&logoColor=white" alt="Shells" />
-  <img src="https://img.shields.io/badge/Startup-~258ms%20(Sub--Second)-success?style=for-the-badge&logo=speedtest&logoColor=white" alt="Startup" />
+  <img src="https://img.shields.io/badge/Startup-On%20Demand-success?style=for-the-badge&logo=speedtest&logoColor=white" alt="Startup" />
   <img src="https://img.shields.io/badge/Theme-120+%20Themes%20(Random/Fixed)-F5E0DC?style=for-the-badge&logo=starship&logoColor=black" alt="Theme" />
   <img src="https://img.shields.io/badge/Safety-Rescue%20Snapshot%20&%20Atomic%20IO-brightgreen?style=for-the-badge" alt="Safety" />
   <img src="https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge" alt="License" />
 </p>
 
 <p align="center">
-  <b>开箱即用、安全无损、极速响应（~258ms）的 Windows 全终端现代化与美化生产力套件。</b><br>
+  <b>支持按需加载与救援备份的 Windows 全终端现代化与美化生产力套件。</b><br>
   涵盖 Windows Terminal、PowerShell 7、Windows PowerShell 5.1、CMD、NuShell 以及 MSYS2。<br>
-  配备<b>三级包管理容错自愈体系</b>、<b>PowerShell 7 每日随机主题</b>、<b>全终端救援快照与原子回退</b>以及<b>CMD 防工作目录劫持加固</b>。
+  配备<b>包管理失败检查与容错</b>、<b>PowerShell 7 每日随机主题</b>、<b>配置救援快照与单文件原子替换</b>以及<b>CMD 防工作目录劫持加固</b>。
 </p>
 
 ---
@@ -28,7 +28,7 @@
 
 ## 🌟 核心特性
 
-- ⚡ **毫秒级极速响应与按需加载（Profile 冷启动降至 ~258ms）**
+- ⚡ **按需加载与可复测的启动性能**
   - **按需激活版本管理**：针对旧版本 `vfox activate` 造成的 9~11 秒严重启动阻塞，优化为按需加载（提供 `Enable-Vfox` 函数）；
   - **流式全文检索 (fif)**：`fif <词>` 采用管道流式传输直达 `fzf`，并杜绝全量空查询，彻底消除大仓库搜索卡死与内存暴涨；
   - **极速短路与进程超时控制**：支持 `POWERSHELL_PROFILE_MINIMAL=1` 顶层短路；外部工具调用通过 `Invoke-ProfileProcess` 施加带超时保护的进程托管。
@@ -39,11 +39,11 @@
   - **非交互启动极速绕过**：CMD AutoRun 前置分析 `CMDCMDLINE`，批处理及 `/c` 静默调用立即退出，零开销无污染；
   - **Clink 提示符静态生成**：`starship.lua` 改为安装期预编译生成，消除运行时额外子进程调用。
 
-- 🛡️ **安全第一：全终端救援快照与无损原子回退（19 项全量资产）**
+- 🛡️ **配置救援快照与受管目标恢复（19 个文件及相关注册表值）**
   - **19 项全量资产覆盖**：清册覆盖 PS7、WinPS 5.1、Windows Terminal、CMD、NuShell（含 `zoxide.nu`）、MSYS2（含 `.bashrc`、4 类 `ini` 及 `MSYS2_PATH_TYPE` 注册表项）；
   - **快照指针精准隔离**：严格隔离部署快照（`.deployment-path`）、安装快照（`.last-install-backup`）与 CMD 卸载快照（`.last-cmd-backup`），避免快照错选或跨终端污染；
-  - **两阶段救援备份 (Zero Data Loss)**：回退前强制先对当前运行中的最新配置生成 `pre-rollback-<guid>` 救援快照，即使回退后反悔也能无损恢复；
-  - **原子写入与并发检测**：利用临时文件与 `[IO.File]::Replace` 保证写入原子性；支持重定向 `Documents` 目录（兼容 OneDrive/企业重定向）。
+  - **两阶段救援备份**：回退前对当前配置生成 `pre-rollback-<guid>` 副本，失败时报告状态与救援目录；
+  - **单文件替换与并发检测**：同目录临时文件与 `[IO.File]::Replace` 避免直接截断已有文件；整个恢复不是多文件和注册表事务，失败时可能部分完成。支持重定向 `Documents` 目录。
 
 - 🎲 **PowerShell 7 默认“每日随机主题”（每日新鲜感，杜绝审美疲劳）**
   - **120+ 官方精美离线主题库**：安装时自动同步全量 Oh-My-Posh 官方主题至本地 `~/oh-my-posh-themes/`，**纯本地毫秒级随机抽取，启动零网络等待**；
@@ -52,7 +52,7 @@
   - **自由随时切换**：随时支持一键切换为【固定主题 (Catppuccin Mocha)】或【Starship 赛博朋克极速主题】。
 
 - ⚡ **高稳定性与极高安装成功率（三级容错自愈体系）**
-  - **前置解决无人值守挂起**：自动静默安装最新 NuGet PackageProvider 并信任官方 PSGallery 软件源，彻底根治传统安装时弹窗询问导致的进程挂起；
+  - **模块来源与版本约束**：指定官方 PSGallery 和测试版本，保留用户仓库信任策略与发布者检查；新环境需具备可用的 PowerShellGet/NuGet 提供程序；
   - **就绪状态毫秒级跳过 (Fast-Path Check)**：已存在的工具链自动跳过，多次运行不产生任何网络浪费；
   - **失败真实阻断**：全链路校验包管理器与自检退出码，严禁“失败但误报成功”，失败显式抛出异常中止；
   - **容错降级链**：Chocolatey（重试 2 次）➜ WinGet（自动重置源缓存）➜ Scoop（终极跨版本保底）。
@@ -60,7 +60,7 @@
 - 🖥️ **五大主流命令行终端全覆盖**
   - **Windows Terminal**：沉浸式亚克力磨砂透明、Catppuccin Mocha 配色、自定义壁纸融合、JetBrainsMono Nerd Font 编程图标字体；
   - **PowerShell 7 (pwsh)**：Fastfetch 专属 ASCII 硬件横幅、功能就绪卡片、Yazi 目录穿梭集成（`y`）、PSReadLine 行内预测与历史检索、Terminal-Icons 文件图标；
-  - **Windows PowerShell 5.1 (系统内置)**：专为 Win 10/11 内置终端与 Win 8.1 调优，**强制 UTF-8 编码彻底根治 GBK 936 乱码与 Parser 报错**，加载极速 Starship 提示符，毫秒级冷启动；
+  - **Windows PowerShell 5.1 (系统内置)**：配置 UTF-8 编码和 Starship 提示符，复用最小及非交互模式检查；
   - **CMD (命令提示符)**：Clink 语法着色与自动补全、Starship 霓虹渐变提示符、全面映射 Unix/Git 常用命令别名（`ll`, `la`, `cat`, `grep` 等）；
   - **NuShell (nu)**：结构化 Shell 环境配置，自动挂载 Starship 提示符与 Zoxide 目录快跳，顶层声明现代 Unix 别名（兼容 NuShell 0.108+ 词法作用域）；
   - **MSYS2 (bash)**：配置 `MSYS2_PATH_TYPE=inherit` 继承 Windows 系统 PATH（在 MSYS2 中可直接调用宿主机原生安装的编译器和工具链），集成 Starship 与 UTF-8 环境。
@@ -81,11 +81,11 @@ powershelldome/
 ├── Install-Cmd.ps1                  # CMD Clink + Starship 现代化独立安装配置
 ├── Install-NuShell.ps1              # NuShell 现代化独立安装与美化配置
 ├── Install-MSYS2.ps1                # MSYS2 独立安装与 PATH 继承美化配置
-├── Restore-All.ps1                  # 全终端一键无损回退脚本 (带救援快照，支持 -WhatIf 预演)
+├── Restore-All.ps1                  # 配置恢复脚本 (带救援快照，支持 -WhatIf 预演)
 ├── Deploy-TerminalConfiguration.ps1 # 生产部署同步脚本 (Windows Terminal + PS7 + CMD)
 ├── Restore-TerminalConfiguration.ps1# 部署专用委托回退脚本 (绑定 .deployment-path)
 ├── scripts/
-│   ├── TerminalState.ps1            # 核心原子快照、救援备份、安全写入与路径解析引擎
+│   ├── TerminalState.ps1            # 快照、救援备份、单文件替换与路径解析
 │   ├── TerminalSetupCommon.ps1      # 跨平台稳态底层库 (三级容错、失败校验、主题分发)
 │   ├── Install-RequiredModules.ps1  # 模块跨版本安全安装委托工具
 │   └── New-DeploymentSnapshot.ps1  # 纯数据化部署快照生成器
@@ -99,7 +99,7 @@ powershelldome/
 ├── fastfetch/                       # 内聚的 Fastfetch 动漫字符画与 Catppuccin 硬件面板
 ├── starship/                        # Starship 霓虹赛博朋克全局配置文件 (收紧超时控制)
 ├── settings.json                    # Windows Terminal 深度美化配置文件
-├── Microsoft.PowerShell_profile.ps1 # PowerShell 7 核心 Profile 源码 (~258ms 极速冷启动)
+├── Microsoft.PowerShell_profile.ps1 # 共享 Profile 源码 (按需加载与进程超时)
 ├── IDE与开发工具集成指南.md         # VS Code 与 IntelliJ IDEA 内置终端集成配置指南
 ├── 开发与部署文档.md                 # 架构设计、实现原理与避坑指南
 ├── 部署与回退.md                     # 备份归档与回退操作指南
@@ -141,7 +141,7 @@ powershell.exe -ExecutionPolicy Bypass -File .\Install-All.ps1 -All
 | 想要配置的终端 | 执行命令 | 交互与特性 |
 | :--- | :--- | :--- |
 | **PowerShell 7** | `pwsh -File .\Install-PowerShell7.ps1` | **直接回车默认采用 [1] 每日随机主题**，亦可输入 `2` 选择 Catppuccin 固定主题或 `3` Starship |
-| **Windows PowerShell 5.1** | `powershell.exe -ExecutionPolicy Bypass -File .\Install-WinPowerShell51.ps1` | 自动修复中文编码，固定加载极速毫秒级 Starship 主题 |
+| **Windows PowerShell 5.1** | `powershell.exe -ExecutionPolicy Bypass -File .\Install-WinPowerShell51.ps1` | 配置 UTF-8 编码，默认加载 Starship 主题 |
 | **CMD (命令提示符)** | `pwsh -File .\Install-Cmd.ps1` | 自动挂载 Clink 补全与 Starship 提示符（支持 `-Uninstall` 卸载） |
 | **NuShell** | `pwsh -File .\Install-NuShell.ps1` | 自动挂载 `starship.nu` 提示符与 `zoxide.nu` 目录快跳，配置 Fastfetch 横幅 |
 | **MSYS2** | `pwsh -File .\Install-MSYS2.ps1` | 注入 `MSYS2_PATH_TYPE=inherit` 继承系统 PATH，配置 UTF-8 与 Starship |
@@ -166,7 +166,7 @@ $env:POWERSHELL_THEME_MODE = 'starship'
 
 ---
 
-## ⏪ 一键无损回退
+## ⏪ 配置回退与救援备份
 
 如果不满意当前配置，或需要复原到修改前的状态，可随时执行回退。回退程序会自动核对原始文件的 SHA-256 散列并清理新生成的文件与注册表项：
 
@@ -181,6 +181,8 @@ pwsh -File .\Restore-All.ps1
 # 或：
 powershell.exe -File .\Restore-All.ps1
 ```
+
+新安装会将自定义 MSYS2 根目录保存到仓库本机记录 `.last-install-context.json`，供默认回退使用。显式指定历史或救援快照时，补上原来的 `-Msys2InstallPath 'D:\Tools\msys64'`。恢复中途失败可能已完成部分目标；保留原快照和输出的救援目录，参阅[部署与回退手册](部署与回退.md)。
 
 ---
 
@@ -218,7 +220,7 @@ powershell.exe -File .\Restore-All.ps1
 # 1. 终端美化主题模式 ('random' 每日随机 / 'fixed' 固定经典 / 'starship' 极速)
 $env:POWERSHELL_THEME_MODE = 'random'
 
-# 2. 极简极速模式（'1' 开启顶层短路跳过所有外部工具探测，启动耗时降至 ~241ms）
+# 2. 极简模式（'1' 跳过外部工具探测和 UI 初始化，保留基础配置与便利函数）
 $env:POWERSHELL_PROFILE_MINIMAL = '0'
 
 # 3. 启动横幅（'1' 开启 Fastfetch 动漫硬件面板，'0' 关闭实现纯净启动）
@@ -230,7 +232,9 @@ $env:POWERSHELL_PROFILE_TIPS = '1'
 # 5. Terminal-Icons 文件图标（'1' 开启，'0' 关闭可进一步优化交互响应）
 $env:POWERSHELL_PROFILE_ICONS = '1'
 
-# 6. vfox 版本环境管理器（默认建议关闭以保持秒开；终端输入 `Enable-Vfox` 或设为 '1' 开启）
+# 6. vfox 默认按需启用；设为 '1' 自动启动时生成预算为 3 秒。
+# 手动 Enable-Vfox 的生成预算为 15 秒，可通过 -TimeoutMs 调整（最多 60000）。
+# 生成脚本中的 vfox 清理、环境更新调用各自有 1.5 秒预算。
 $env:POWERSHELL_PROFILE_VFOX = '0'
 
 # 7. PSReadLine 预测模式 ('InlineView' 行内灰色预测 / 'ListView' 下拉菜单列表)
@@ -241,7 +245,9 @@ $env:POWERSHELL_PREDICTION_VIEW = 'InlineView'
 
 ## 🧪 自动化测试与质量保障
 
-本项目包含 4 套严密的设计与安全回归测试套件及 1 套性能基准测试工具，在 `PowerShell 7` 与 `Windows PowerShell 5.1` 双环境下均保持 100% PASS：
+本项目包含 4 套回归测试及 1 套性能测量工具，可在 `PowerShell 7` 与 `Windows PowerShell 5.1` 下运行。安装和注册表操作使用隔离替身，测试通过不代表真实联网安装、所有系统版本和断电场景均已验证。
+
+2026-09-07 对 `c484a83` 的复核中，Windows 11 / PowerShell 7.6.5、PTY、固定主题、每模式 3 次：defaults 的 Profile 主体加载中位数为 **3.142 秒**，minimal 为 **0.417 秒**。这不是完整冷启动；不含进程创建、首次提示符渲染和终端绘制，且会受负载与插件缓存影响。详细配置和 full 模式数据见[开发与部署文档](开发与部署文档.md)。
 
 ```powershell
 # 1. 静态语法、JSON 合法性、AST 抽象语法树与 Profile 重载安全性自检

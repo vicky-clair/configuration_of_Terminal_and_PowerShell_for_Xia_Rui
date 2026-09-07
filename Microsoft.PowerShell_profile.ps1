@@ -585,10 +585,45 @@ function Invoke-ProfileProcess {
     } finally { $process.Dispose() }
 }
 
+function ConvertTo-BoundedVfoxScript {
+    param([string]$Text, [int]$TimeoutMs=1500)
+    $tokens=$null; $errors=$null
+    $ast=[Management.Automation.Language.Parser]::ParseInput($Text,[ref]$tokens,[ref]$errors)
+    if ($errors) { throw 'vfox generated invalid PowerShell initialization.' }
+    # vfox emits native calls inside its module, prompt hook and exit handler. Bound these too.
+    $calls=@($ast.FindAll({ param($node)
+        if ($node -isnot [Management.Automation.Language.CommandAst]) { return $false }
+        $name=$node.GetCommandName()
+        return $name -and [IO.Path]::GetFileName($name) -in @('vfox','vfox.exe')
+    },$true) | Sort-Object { $_.Extent.StartOffset } -Descending)
+    foreach ($call in $calls) {
+        $values=@(foreach ($element in $call.CommandElements) {
+            if ($element -is [Management.Automation.Language.CommandParameterAst] -and -not $element.Argument) {
+                "'"+$element.Extent.Text.Replace("'","''")+"'"
+                continue
+            }
+            if ($element -isnot [Management.Automation.Language.StringConstantExpressionAst]) {
+                throw 'Unsupported dynamic vfox call in generated initialization.'
+            }
+            "'"+$element.Value.Replace("'","''")+"'"
+        })
+        $arguments=if ($values.Count -gt 1) { $values[1..($values.Count-1)] -join ',' } else { '' }
+        $replacement="Invoke-ProfileProcess -Name $($values[0]) -Arguments @($arguments) -TimeoutMs $TimeoutMs"
+        $Text=$Text.Remove($call.Extent.StartOffset,$call.Extent.EndOffset-$call.Extent.StartOffset).Insert($call.Extent.StartOffset,$replacement)
+    }
+    return $Text
+}
+
 function Enable-Vfox {
+    [CmdletBinding()]
+    param([ValidateRange(50,60000)][int]$TimeoutMs=15000)
     try {
-        $activation=Invoke-ProfileProcess vfox @('activate','pwsh') -TimeoutMs 3000
-        if ($activation) { Invoke-Expression $activation; $global:VFOX_SKIPPED=$false }
+        $activation=Invoke-ProfileProcess vfox @('activate','pwsh') -TimeoutMs $TimeoutMs
+        if (-not $activation) { throw 'vfox is unavailable or returned empty initialization.' }
+        $activation=ConvertTo-BoundedVfoxScript $activation
+        $ErrorActionPreference='Stop'
+        Invoke-Expression $activation
+        $global:VFOX_SKIPPED=$false
     } catch { $global:VFOX_SKIPPED=$true; Write-Warning "vfox: $_" }
 }
 function Enable-TerminalIcons { Import-Module Terminal-Icons -ErrorAction Stop }
@@ -630,9 +665,6 @@ if (Get-Command eza -CommandType Application -ErrorAction SilentlyContinue) {
 
 if (Get-Command nvim -CommandType Application -ErrorAction SilentlyContinue) { $env:EDITOR='nvim'; $env:VISUAL='nvim' }
 
-
-# vfox is on demand by default. Explicit opt-in still has a bounded activation time.
-if ($env:POWERSHELL_PROFILE_VFOX -eq '1') { Enable-Vfox }
 
 # Deterministic daily theme selection: no cache writes, and the same sorted library gives the same theme that day.
 $profileThemeCandidates=@()
@@ -734,6 +766,9 @@ if (Get-Module -ListAvailable PSReadLine) {
     } catch { Write-Warning "PSReadLine/PSFzf: $_" }
 }
 
+
+# Activate after final prompt setup, with a shorter generation budget than manual Enable-Vfox.
+if ($env:POWERSHELL_PROFILE_VFOX -eq '1') { Enable-Vfox -TimeoutMs 3000 }
 
 # Interactive startup banner: displays Fastfetch ASCII art and hardware telemetry.
 # Set $env:POWERSHELL_PROFILE_BANNER = '0' to disable if a silent prompt is preferred.

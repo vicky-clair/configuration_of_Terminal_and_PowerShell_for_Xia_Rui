@@ -95,6 +95,30 @@ function Get-TerminalRegistryState($Spec) { [pscustomobject]@{Key=$Spec.Key;Name
 function Set-TerminalRegistryState($State) {}
 '@
     Set-TerminalText $state ([IO.File]::ReadAllText($state)+"`n"+$regMocks) -Bom
+    # Exercise custom MSYS2 roots through the public default restore entry, without trusting manifest paths.
+    & {
+        . $common
+        $msys=Join-Path $fixture 'custom-msys'
+        $bashrc=@(Get-TerminalTargets -Msys2InstallPath $msys -Components MSYS2 | Where-Object Name -eq 'msys2_bashrc')[0].Target
+        Set-TerminalText $bashrc 'before custom msys'
+        $parent=Backup-AllTerminalConfigurations -Components Shared
+        Add-TerminalMsysSnapshot -Directory $parent -Msys2InstallPath $msys
+        Set-TerminalText $bashrc 'after custom msys'
+        & (Join-Path $repo 'Restore-All.ps1') -WhatIf
+        Assert ([IO.File]::ReadAllText($bashrc) -eq 'after custom msys') 'Custom MSYS WhatIf wrote data.'
+        & (Join-Path $repo 'Restore-All.ps1')
+        Assert ([IO.File]::ReadAllText($bashrc) -eq 'before custom msys') 'Default restore lost the custom MSYS root.'
+        $standalone=Backup-AllTerminalConfigurations -Msys2InstallPath $msys -Components MSYS2
+        & (Join-Path $repo 'Restore-All.ps1') -WhatIf
+        $blocked=$false
+        try { & (Join-Path $repo 'Restore-All.ps1') -BackupDirectory $standalone -WhatIf }
+        catch { $blocked=$_.Exception.Message -like '*Invalid snapshot target*' }
+        Assert $blocked 'Explicit snapshots widened the target allowlist from local context or manifest data.'
+        & (Join-Path $repo 'Restore-All.ps1') -BackupDirectory $standalone -Msys2InstallPath $msys -WhatIf
+        $null=Backup-AllTerminalConfigurations -Components Shared
+        $context=Get-Content (Join-Path $repo '.last-install-context.json') -Raw | ConvertFrom-Json
+        Assert (-not $context.Msys2InstallPath) 'A later installation reused a stale MSYS root.'
+    }
     & $cmdInstaller -Uninstall
     Assert ([IO.File]::ReadAllText($cmdProfile) -eq 'original autorun bytes') 'CMD uninstall did not restore prior content.'
     Write-Host 'PASS: real installer templates, both generated PowerShell profiles, NuShell aliases, deployment rollback routing, CMD lookup and uninstall (all external writes mocked).'

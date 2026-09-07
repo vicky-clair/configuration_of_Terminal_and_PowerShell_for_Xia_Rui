@@ -183,6 +183,14 @@ function Read-TerminalSnapshot {
     return $manifest
 }
 
+function Save-TerminalInstallContext {
+    param([string]$Directory, [string]$Msys2InstallPath)
+    # Local installation state lives outside snapshots. Never learn allowed roots from an imported manifest.
+    $projectRoot=Split-Path -Parent $PSScriptRoot
+    $context=@{Version=1;BackupDirectory=[IO.Path]::GetFullPath($Directory);Msys2InstallPath=$Msys2InstallPath}
+    Set-TerminalText (Join-Path $projectRoot '.last-install-context.json') ($context | ConvertTo-Json)
+}
+
 function Add-TerminalMsysSnapshot {
     param([string]$Directory, [string]$Msys2InstallPath)
     $manifest=Read-TerminalSnapshot -Directory $Directory -Msys2InstallPath $Msys2InstallPath
@@ -196,6 +204,10 @@ function Add-TerminalMsysSnapshot {
     $manifest.Files=@($manifest.Files)+@($extra.Files)
     $manifest.Registry=@($manifest.Registry)+@($extra.Registry)
     Set-TerminalText (Join-Path $Directory 'manifest.json') ($manifest | ConvertTo-Json -Depth 8)
+    $pointer=Join-Path (Split-Path -Parent $PSScriptRoot) '.last-install-backup'
+    if ([IO.File]::Exists($pointer) -and [IO.Path]::GetFullPath([IO.File]::ReadAllText($pointer).Trim()) -eq [IO.Path]::GetFullPath($Directory)) {
+        Save-TerminalInstallContext -Directory $Directory -Msys2InstallPath ([IO.Path]::GetFullPath($Msys2InstallPath))
+    }
 }
 
 function Resolve-TerminalTool {

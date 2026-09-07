@@ -7,6 +7,15 @@ if (-not $BackupDirectory) {
     $pointer=Join-Path $PSScriptRoot '.last-install-backup'
     if (-not (Test-Path -LiteralPath $pointer)) { throw 'No installation snapshot. Specify -BackupDirectory.' }
     $BackupDirectory=[IO.File]::ReadAllText($pointer).Trim()
+    $contextPath=Join-Path $PSScriptRoot '.last-install-context.json'
+    if (-not $Msys2InstallPath -and [IO.File]::Exists($contextPath)) {
+        Assert-TerminalRegularFile $contextPath
+        $context=[IO.File]::ReadAllText($contextPath) | ConvertFrom-Json
+        if ($context.Version -ne 1) { throw 'Unsupported local installation context version.' }
+        if ($context.BackupDirectory -and [IO.Path]::GetFullPath($context.BackupDirectory) -eq [IO.Path]::GetFullPath($BackupDirectory)) {
+            $Msys2InstallPath=$context.Msys2InstallPath
+        }
+    }
 }
 if (Test-Path -LiteralPath (Join-Path $BackupDirectory 'manifest.json')) {
     Restore-TerminalSnapshot -Directory $BackupDirectory -Msys2InstallPath $Msys2InstallPath -CmdTargetDir $CmdTargetDir -Components $Components -WhatIf:$WhatIfPreference

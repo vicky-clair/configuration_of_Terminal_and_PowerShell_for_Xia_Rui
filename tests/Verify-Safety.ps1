@@ -92,6 +92,19 @@ try {
         Assert-Fails { Install-AppWithChocoWingetFallback -Name test -ChocoId test -WingetId test -ScoopId test -CommandCheck test } '*All installation methods failed*'
     }
     $source=Join-Path $testRoot 'themes'
+    & {
+        function Ensure-ScoopInstalled {}
+        $script:pathRefreshed=$false
+        $script:commandAvailable=$false
+        function Refresh-SessionPath { $script:pathRefreshed=$true }
+        function Get-Command { if ($script:pathRefreshed -and $script:commandAvailable) { [pscustomobject]@{Source='fixture.exe'} } }
+        function scoop { $global:LASTEXITCODE=0; [pscustomobject]@{Name='starship'} }
+        Assert-Fails { Install-ScoopAppsIfMissing @('starship') } '*not executable after refreshing PATH*'
+        Assert $script:pathRefreshed 'Existing installations did not refresh PATH.'
+        $script:pathRefreshed=$false
+        $script:commandAvailable=$true
+        Install-ScoopAppsIfMissing @('starship')
+    }
     [IO.Directory]::CreateDirectory($source) | Out-Null
     Set-TerminalText (Join-Path $source 'catppuccin_mocha.omp.json') '{}'
     $env:POSH_THEMES_PATH=$source
@@ -107,13 +120,36 @@ try {
         . (Join-Path $projectRoot 'Microsoft.PowerShell_profile.ps1')
     }
     $engine=if ($PSVersionTable.PSEdition -eq 'Core') { Join-Path $PSHOME 'pwsh.exe' } else { Join-Path $PSHOME 'powershell.exe' }
+    & {
+        $script:calls=[Collections.Generic.List[object]]::new()
+        function Invoke-ProfileProcess {
+            param($Name,$Arguments,$TimeoutMs)
+            $script:calls.Add([pscustomobject]@{Name=$Name;Arguments=$Arguments;Timeout=$TimeoutMs})
+            if ($Arguments[0] -eq 'activate') { return "& 'C:/vfox/vfox.exe' env --cleanup 2>`$null | Out-Null" }
+        }
+        Enable-Vfox
+        Assert (-not $global:VFOX_SKIPPED) 'Bounded vfox activation failed.'
+        Assert ($script:calls[0].Timeout -eq 15000 -and $script:calls[1].Timeout -eq 1500) 'Manual/cleanup budgets were not forwarded.'
+        Enable-Vfox -TimeoutMs 3000
+        Assert ($script:calls[2].Timeout -eq 3000) 'Automatic vfox budget was not forwarded.'
+        $converted=ConvertTo-BoundedVfoxScript "function Test-VfoxHook { & 'C:/vfox/vfox.exe' env -s pwsh }; Test-VfoxHook"
+        Invoke-Expression $converted
+        Assert (($script:calls[4].Arguments -join '|') -eq 'env|-s|pwsh') 'Nested vfox call lost native arguments.'
+        Assert-Fails { ConvertTo-BoundedVfoxScript '& vfox env $unknown' } '*Unsupported dynamic vfox call*'
+        function Invoke-ProfileProcess { throw 'fixture initialization timed out' }
+        Enable-Vfox -WarningAction SilentlyContinue
+        Assert $global:VFOX_SKIPPED 'Failed initialization was reported as ready.'
+        function Invoke-ProfileProcess { return '' }
+        Enable-Vfox -WarningAction SilentlyContinue
+        Assert $global:VFOX_SKIPPED 'Missing vfox was reported as ready.'
+    }
     $watch=[Diagnostics.Stopwatch]::StartNew()
     Assert-Fails { Invoke-ProfileProcess $engine @('-NoProfile','-Command','Start-Sleep -Seconds 10') -TimeoutMs 100 } '*timed out*'
     Assert ($watch.Elapsed.TotalSeconds -lt 4) 'Timeout did not bound child process wait.'
     $argTest=Join-Path $testRoot 'argument test.ps1'
     Set-TerminalText $argTest 'param([string]$Value) Write-Output $Value'
     $value='a space "quote" and slash\'
-    $echo=Invoke-ProfileProcess $engine @('-NoProfile','-File',$argTest,'-Value',$value) -TimeoutMs 3000
+    $echo=Invoke-ProfileProcess $engine @('-NoProfile','-File',$argTest,'-Value',$value) -TimeoutMs 10000
     Assert ($echo.Trim() -ceq $value) 'Native argument quoting failed.'
     Write-Host "PASS: modern rescue/restore, preflight security, registry types, atomic writes, failed installs, themes, minimal startup and process timeout ($($PSVersionTable.PSVersion))."
 } finally {

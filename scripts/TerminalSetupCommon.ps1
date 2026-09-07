@@ -181,6 +181,10 @@ function Install-ScoopAppsIfMissing {
             Refresh-SessionPath
             if ($app -notmatch 'nerd-fonts' -and -not (Get-Command $commandName -ErrorAction SilentlyContinue)) { throw "Installed app is not executable: $commandName" }
         } else {
+            Refresh-SessionPath
+            if ($app -notmatch 'nerd-fonts' -and -not (Get-Command $commandName -ErrorAction SilentlyContinue)) {
+                throw "Scoop lists $app as installed, but $commandName is not executable after refreshing PATH. Repair the installation or its shims before retrying."
+            }
             Write-Host "[OK] 应用已安装: $app" -ForegroundColor DarkGray
         }
     }
@@ -501,6 +505,10 @@ function Backup-AllTerminalConfigurations {
     $backupDir=Join-Path $projectRoot ('backups/install-backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N'))
     $targets=@(Get-TerminalTargets -Msys2InstallPath $Msys2InstallPath -Components $Components -CmdTargetDir $CmdTargetDir)
     $null=New-TerminalSnapshot -Directory $backupDir -Targets $targets -RegistrySpecs @(Get-TerminalRegistrySpecs $Components)
+    if ($PointerName -eq '.last-install-backup') {
+        $msysRoot=if (@($targets | Where-Object Name -eq 'msys2_bashrc').Count) { Resolve-TerminalMsysRoot $Msys2InstallPath } else { $null }
+        Save-TerminalInstallContext -Directory $backupDir -Msys2InstallPath $msysRoot
+    }
     # Each top-level operation owns its snapshot; nested installers explicitly skip backup.
     Set-TerminalText (Join-Path $projectRoot $PointerName) $backupDir
     Write-Host "Snapshot: $backupDir"
