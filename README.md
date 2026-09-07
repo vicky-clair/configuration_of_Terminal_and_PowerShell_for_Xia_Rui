@@ -60,7 +60,7 @@
 - 🖥️ **五大主流命令行终端全覆盖**
   - **Windows Terminal**：沉浸式亚克力磨砂透明、Catppuccin Mocha 配色、自定义壁纸融合、JetBrainsMono Nerd Font 编程图标字体；
   - **PowerShell 7 (pwsh)**：Fastfetch 专属 ASCII 硬件横幅、功能就绪卡片、Yazi 目录穿梭集成（`y`）、PSReadLine 行内预测与历史检索、Terminal-Icons 文件图标；
-  - **Windows PowerShell 5.1 (系统内置)**：配置 UTF-8 编码和 Starship 提示符，复用最小及非交互模式检查；
+  - **Windows PowerShell 5.1 (系统内置)**：配置 UTF-8 编码，默认每次启动随机主题，复用最小及非交互模式检查；
   - **CMD (命令提示符)**：Clink 语法着色与自动补全、Starship 霓虹渐变提示符、全面映射 Unix/Git 常用命令别名（`ll`, `la`, `cat`, `grep` 等）；
   - **NuShell (nu)**：结构化 Shell 环境配置，自动挂载 Starship 提示符与 Zoxide 目录快跳，顶层声明现代 Unix 别名（兼容 NuShell 0.108+ 词法作用域）；
   - **MSYS2 (bash)**：配置 `MSYS2_PATH_TYPE=inherit` 继承 Windows 系统 PATH（在 MSYS2 中可直接调用宿主机原生安装的编译器和工具链），集成 Starship 与 UTF-8 环境。
@@ -77,7 +77,7 @@
 powershelldome/
 ├── Install-All.ps1                  # 全终端一键集成总装脚本 (-IncludeNuShell, -IncludeMSYS2, -All)
 ├── Install-PowerShell7.ps1          # PowerShell 7 独立安装脚本 (默认随机主题 / 固定 / Starship)
-├── Install-WinPowerShell51.ps1      # Windows PowerShell 5.1 独立安装与极速 Starship 配置
+├── Install-WinPowerShell51.ps1      # Windows PowerShell 5.1 独立安装与美化配置 (默认随机主题 / 支持 Starship)
 ├── Install-Cmd.ps1                  # CMD Clink + Starship 现代化独立安装配置
 ├── Install-NuShell.ps1              # NuShell 现代化独立安装与美化配置
 ├── Install-MSYS2.ps1                # MSYS2 独立安装与 PATH 继承美化配置
@@ -94,6 +94,7 @@ powershelldome/
 │   ├── Verify-Deployment.ps1        # 隔离沙箱部署、回退完整性、WhatIf 与防覆写测试
 │   ├── Verify-Safety.ps1            # 救援快照、白名单过滤、原子写入与防提权劫持专项测试
 │   ├── Verify-GeneratedConfiguration.ps1 # 真实安装模板渲染、NuShell 作用域与 CMD 劫持防护测试
+│   ├── Verify-InstallerIntegration.ps1   # 安装器真实路径、MSYS2/NuShell 终端注册与异常测试
 │   └── Measure-ProfileStartup.ps1   # 交互式 Profile 加载基准性能测试工具
 ├── cmd/                             # CMD 批处理与 Clink Lua 增强脚本 (防 CWD 注入)
 ├── fastfetch/                       # 内聚的 Fastfetch 动漫字符画与 Catppuccin 硬件面板
@@ -154,7 +155,7 @@ powershell.exe -ExecutionPolicy Bypass -File .\Install-All.ps1 -All
 | 想要配置的终端 | 执行命令 | 交互与特性 |
 | :--- | :--- | :--- |
 | **PowerShell 7** | `pwsh -File .\Install-PowerShell7.ps1` | **直接回车默认采用 [1] 每次启动随机主题**，亦可输入 `2` 选择 Catppuccin 固定主题或 `3` Starship |
-| **Windows PowerShell 5.1** | `powershell.exe -ExecutionPolicy Bypass -File .\Install-WinPowerShell51.ps1` | 配置 UTF-8 编码，默认加载 Starship 主题 |
+| **Windows PowerShell 5.1** | `powershell.exe -ExecutionPolicy Bypass -File .\Install-WinPowerShell51.ps1` | 配置 UTF-8 编码，默认每次启动随机主题，可用 -Theme Starship 选择 Starship |
 | **CMD (命令提示符)** | `pwsh -File .\Install-Cmd.ps1` | 自动挂载 Clink 补全与 Starship 提示符（支持 `-Uninstall` 卸载） |
 | **NuShell** | `pwsh -File .\Install-NuShell.ps1` | 自动挂载 `starship.nu` 提示符与 `zoxide.nu` 目录快跳，配置 Fastfetch 横幅，**自动在 Windows Terminal 下拉菜单注册入口** |
 | **MSYS2** | `pwsh -File .\Install-MSYS2.ps1` | 注入 `MSYS2_PATH_TYPE=inherit` 继承系统 PATH，配置 UTF-8 与 Starship，**自动在 Windows Terminal 下拉菜单注册入口**（支持 `-Msys2InstallPath` 自定义目录） |
@@ -260,9 +261,9 @@ $env:POWERSHELL_PREDICTION_VIEW = 'InlineView'
 
 ## 🧪 自动化测试与质量保障
 
-本项目包含 4 套回归测试及 1 套性能测量工具，可在 `PowerShell 7` 与 `Windows PowerShell 5.1` 下运行。安装和注册表操作使用隔离替身，测试通过不代表真实联网安装、所有系统版本和断电场景均已验证。
+本项目包含 5 套回归测试及 1 套性能测量工具，可在 `PowerShell 7` 与 `Windows PowerShell 5.1` 下运行。安装和注册表操作使用隔离替身，测试通过不代表真实联网安装、所有系统版本和断电场景均已验证。
 
-2026-09-07 对 `c484a83` 的复核中，Windows 11 / PowerShell 7.6.5、PTY、固定主题、每模式 3 次：defaults 的 Profile 主体加载中位数为 **3.142 秒**，minimal 为 **0.417 秒**。这不是完整冷启动；不含进程创建、首次提示符渲染和终端绘制，且会受负载与插件缓存影响。详细配置和 full 模式数据见[开发与部署文档](开发与部署文档.md)。
+2026-09-07 对 `c484a83` 的复核中，Windows 11 / PowerShell 7.6.5、PTY、固定主题、每模式 3 次：defaults 的 Profile 主体加载中位数为 **3.142 秒**，minimal 为 **0.417 秒**。这不是完整冷启动；不含进程创建、首次提示符渲染和终端绘制，且会受负载与插件缓存影响。详细配置和 full 模式数据见[开发与部署文档](开发与部署文档.md)。当前默认已开启图标、横幅和卡片，以上历史数据不代表当前默认启动性能；当前版本尚需单独测速。
 
 ```powershell
 # 1. 静态语法、JSON 合法性、AST 抽象语法树与 Profile 重载安全性自检
@@ -281,7 +282,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Verify-Safety.ps
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\tests\Verify-GeneratedConfiguration.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Verify-GeneratedConfiguration.ps1
 
-# 5. 交互式 Profile 启动耗时基准测量 (支持 -Mode defaults/minimal/full)
+# 5. 安装器集成与真实终端注册测试（MSYS2/NuShell 路径联动、Zoxide 初始化、异常穿透）
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\tests\Verify-InstallerIntegration.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Verify-InstallerIntegration.ps1
+
+# 6. 交互式 Profile 启动耗时基准测量 (支持 -Mode defaults/minimal/full)
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\tests\Measure-ProfileStartup.ps1 -Mode defaults
 ```
 

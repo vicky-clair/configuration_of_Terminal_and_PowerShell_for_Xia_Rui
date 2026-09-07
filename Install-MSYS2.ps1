@@ -38,10 +38,12 @@ $msys2Candidates = @(
     (Join-Path $env:USERPROFILE 'scoop\apps\msys2\current'),
     'C:\tools\msys64'
 )
+if ($env:SCOOP) { $msys2Candidates += Join-Path $env:SCOOP 'apps/msys2/current' }
+if ($Msys2InstallPath) { $msys2Candidates = @([IO.Path]::GetFullPath($Msys2InstallPath)) }
 
 $msys2Root = $null
 foreach ($cand in $msys2Candidates) {
-    if (Test-Path (Join-Path $cand 'usr\bin\bash.exe')) {
+    if (Test-Path -LiteralPath (Join-Path $cand 'usr\bin\bash.exe') -PathType Leaf) {
         $msys2Root = $cand
         break
     }
@@ -49,9 +51,11 @@ foreach ($cand in $msys2Candidates) {
 
 if (-not $msys2Root) {
     Write-Host "[*] 未在常用路径检测到 MSYS2，启动容错安装流程..." -ForegroundColor Yellow
-    $null = Install-AppWithChocoWingetFallback -Name "MSYS2" -ChocoId "msys2" -WingetId "MSYS2.MSYS2" -ScoopId "msys2" -PathCheck "C:\msys64"
+    if ($Msys2InstallPath) { throw "The requested MSYS2 installation path has no usr\bin\bash.exe: $Msys2InstallPath" }
+    $bashCandidates = @($msys2Candidates | ForEach-Object { Join-Path $_ 'usr\bin\bash.exe' })
+    $null = Install-AppWithChocoWingetFallback -Name "MSYS2" -ChocoId "msys2" -WingetId "MSYS2.MSYS2" -ScoopId "msys2" -PathCheck $bashCandidates
     foreach ($cand in $msys2Candidates) {
-        if (Test-Path (Join-Path $cand 'usr\bin\bash.exe')) {
+        if (Test-Path -LiteralPath (Join-Path $cand 'usr\bin\bash.exe') -PathType Leaf) {
             $msys2Root = $cand
             break
         }
@@ -86,7 +90,7 @@ try {
     $env:MSYS2_PATH_TYPE = 'inherit'
     foreach ($iniName in @('msys2.ini', 'ucrt64.ini', 'mingw64.ini', 'clang64.ini')) {
         $iniPath = Join-Path $msys2Root $iniName
-        if (Test-Path $iniPath) {
+        if (Test-Path -LiteralPath $iniPath) {
             $iniContent = [System.IO.File]::ReadAllText($iniPath, [System.Text.Encoding]::UTF8)
             if ($iniContent -match '#MSYS2_PATH_TYPE=inherit') {
                 $iniContent = $iniContent -replace '#MSYS2_PATH_TYPE=inherit', 'MSYS2_PATH_TYPE=inherit'
@@ -105,13 +109,13 @@ try {
 } catch {}
 
 $msysHomeDir = Join-Path $msys2Root "home\$env:USERNAME"
-if (-not (Test-Path $msysHomeDir)) {
-    New-Item -ItemType Directory -Path $msysHomeDir -Force | Out-Null
+if (-not (Test-Path -LiteralPath $msysHomeDir)) {
+    [System.IO.Directory]::CreateDirectory($msysHomeDir) | Out-Null
 }
 
 $bashrcPath = Join-Path $msysHomeDir '.bashrc'
 $originalBashrc = ''
-if (Test-Path $bashrcPath) {
+if (Test-Path -LiteralPath $bashrcPath) {
     $originalBashrc = [System.IO.File]::ReadAllText($bashrcPath, [System.Text.Encoding]::UTF8)
 }
 
@@ -139,6 +143,11 @@ export LC_ALL=zh_CN.UTF-8
 # 3. Starship 赛博朋克提示符集成
 if command -v starship &> /dev/null; then
     eval "$(starship init bash)"
+fi
+
+# Directory jumping requires the shell hook as well as the executable.
+if command -v zoxide &> /dev/null; then
+    eval "$(zoxide init bash)"
 fi
 
 # 4. Fastfetch 终端横幅展示
@@ -211,41 +220,7 @@ Write-Host "[OK] 已更新 MSYS2 配置: $bashrcPath" -ForegroundColor Green
 
 # 5. 注册 Windows Terminal MSYS2 配置文件 (若已安装 WT)
 Write-Host "`n[3/3] 检查并注册 Windows Terminal MSYS2 终端配置..." -ForegroundColor Yellow
-$wtStable = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
-$wtPreview = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json'
-foreach ($wtPath in @($wtStable, $wtPreview)) {
-    if (Test-Path $wtPath) {
-        try {
-            $wtJson = Get-Content -LiteralPath $wtPath -Raw -Encoding UTF8 | ConvertFrom-Json
-            $hasMsys = $false
-            if ($wtJson.profiles -and $wtJson.profiles.list) {
-                foreach ($p in $wtJson.profiles.list) {
-                    if ($p.name -like '*msys*' -or $p.commandline -like '*msys2_shell*') {
-                        $hasMsys = $true
-                        break
-                    }
-                }
-                if (-not $hasMsys) {
-                    $msysShellCmd = Join-Path $msys2Root 'msys2_shell.cmd'
-                    $newProfile = [PSCustomObject]@{
-                        guid = '{16d4cd58-c9b9-4c8f-8e9e-9b7c4d8f3e2a}'
-                        name = 'MSYS2 UCRT64'
-                        commandline = "`"$msysShellCmd`" -defterm -here -no-start -ucrt64"
-                        startingDirectory = '%USERPROFILE%'
-                        hidden = $false
-                    }
-                    $wtJson.profiles.list += $newProfile
-                    Set-TerminalText $wtPath ($wtJson | ConvertTo-Json -Depth 100)
-                    Write-Host "[OK] 已在 Windows Terminal 中注册 MSYS2 终端配置项" -ForegroundColor Green
-                } else {
-                    Write-Host "[OK] Windows Terminal 已存在 MSYS2 终端配置项" -ForegroundColor DarkGray
-                }
-            }
-        } catch {
-            Write-Verbose "Windows Terminal 配置文件更新提示: $_"
-        }
-    }
-}
+Register-TerminalShellProfile -Shell MSYS2 -Msys2InstallPath $msys2Root
 
 Write-Host "`n============================================================" -ForegroundColor Green
 Write-Host "[OK] MSYS2 安装与美化配置完成！" -ForegroundColor Green

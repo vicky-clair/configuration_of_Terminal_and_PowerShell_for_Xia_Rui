@@ -4,7 +4,7 @@
 .DESCRIPTION
     按序执行：
     1. Install-PowerShell7.ps1 (PowerShell 7 核心工具、字体、模块、横幅及提示符)
-    2. Install-WinPowerShell51.ps1 (Windows PowerShell 5.1 极速固定主题与 UTF-8 修复)
+    2. Install-WinPowerShell51.ps1 (Windows PowerShell 5.1 默认随机主题与 UTF-8 修复)
     3. Install-Cmd.ps1 (CMD Clink + Starship 赛博朋克固定主题与别名)
     可选/扩展执行：
     4. Install-NuShell.ps1 (NuShell 现代化终端环境与美化配置，-IncludeNuShell 或 -All)
@@ -61,7 +61,7 @@ if (-not $SkipPowerShell7) {
 
 # 2. Windows PowerShell 5.1
 if (-not $SkipWinPowerShell51) {
-    Write-Host "`n>>> [2/5] 执行 Windows PowerShell 5.1 环境配置与固定主题..." -ForegroundColor Yellow
+    Write-Host "`n>>> [2/5] 执行 Windows PowerShell 5.1 环境配置与默认随机主题..." -ForegroundColor Yellow
     & (Join-Path $projectRoot 'Install-WinPowerShell51.ps1') -SkipBackup
 } else {
     Write-Host "`n>>> [2/5] 跳过 Windows PowerShell 5.1 配置 (-SkipWinPowerShell51)" -ForegroundColor DarkGray

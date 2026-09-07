@@ -190,38 +190,7 @@ Set-TerminalText $configNuPath $configNuContent
 Write-Host "[OK] 已生成 NuShell 主配置: $configNuPath" -ForegroundColor Green
 
 # 7. 注册 Windows Terminal NuShell 配置文件 (若已安装 WT)
-$wtStable = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
-$wtPreview = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json'
-foreach ($wtPath in @($wtStable, $wtPreview)) {
-    if (Test-Path $wtPath) {
-        try {
-            $wtJson = Get-Content -LiteralPath $wtPath -Raw -Encoding UTF8 | ConvertFrom-Json
-            $hasNu = $false
-            if ($wtJson.profiles -and $wtJson.profiles.list) {
-                foreach ($p in $wtJson.profiles.list) {
-                    if ($p.name -like '*nu*' -or $p.commandline -like '*nu.exe*') {
-                        $hasNu = $true
-                        break
-                    }
-                }
-                if (-not $hasNu) {
-                    $newProfile = [PSCustomObject]@{
-                        guid = '{a3f9c1e2-7b4d-4f6a-9c2d-1e5b8f3a7d6c}'
-                        name = 'NuShell'
-                        commandline = 'nu.exe'
-                        startingDirectory = '%USERPROFILE%'
-                        hidden = $false
-                    }
-                    $wtJson.profiles.list += $newProfile
-                    Set-TerminalText $wtPath ($wtJson | ConvertTo-Json -Depth 100)
-                    Write-Host "[OK] 已在 Windows Terminal 中注册 NuShell 终端配置项" -ForegroundColor Green
-                }
-            }
-        } catch {
-            Write-Verbose "Windows Terminal 配置文件更新提示: $_"
-        }
-    }
-}
+Register-TerminalShellProfile -Shell NuShell
 
 Write-Host "`n============================================================" -ForegroundColor Green
 Write-Host "[OK] NuShell 安装与美化配置完成！" -ForegroundColor Green

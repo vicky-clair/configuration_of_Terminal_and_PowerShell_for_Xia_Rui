@@ -88,8 +88,20 @@ function Ensure-ScoopBuckets {
     }
 }
 
+function Test-SetupAppReady {
+    param([string]$CommandName, [string[]]$PathCheck)
+    if ($PathCheck) {
+        foreach ($path in $PathCheck) {
+            if (Test-Path -LiteralPath $path -PathType Leaf) { return $true }
+        }
+        return $false
+    }
+    return [bool](Get-Command $CommandName -ErrorAction SilentlyContinue)
+}
+
 function Install-ScoopAppsIfMissing {
-    param([string[]]$Apps)
+    param([string[]]$Apps, [string[]]$PathCheck)
+    if ($PathCheck -and $Apps.Count -ne 1) { throw 'Path verification requires exactly one application.' }
     Ensure-ScoopInstalled
     $listOutput = & scoop list
     if ($LASTEXITCODE -ne 0) { throw 'Scoop list failed.' }
@@ -137,8 +149,8 @@ function Install-ScoopAppsIfMissing {
         }
 
         # 检查是否已通过外部途径（如 WinGet / MSI / 系统自带）安装
-        if (Get-Command $commandName -ErrorAction SilentlyContinue) {
-            Write-Host "[OK] 应用已就绪: $baseName ($((Get-Command $commandName).Source))" -ForegroundColor DarkGray
+        if (Test-SetupAppReady $commandName $PathCheck) {
+            Write-Host "[OK] 应用已就绪: $baseName" -ForegroundColor DarkGray
             continue
         }
 
@@ -155,7 +167,7 @@ function Install-ScoopAppsIfMissing {
             }
 
             # 若 Scoop 安装遇阻且该工具在 WinGet 中存在，自动尝试 WinGet 容错兜底
-            if (-not $scoopSuccess -and -not (Get-Command $commandName -ErrorAction SilentlyContinue)) {
+            if (-not $scoopSuccess -and -not (Test-SetupAppReady $commandName $PathCheck)) {
                 if ($wingetFallbackMap.ContainsKey($baseName)) {
                     $wingetId = $wingetFallbackMap[$baseName]
                     Write-Host "[*] 启动 WinGet 智能容错兜底: 正在通过 WinGet 安装 $baseName ($wingetId)..." -ForegroundColor Cyan
@@ -179,10 +191,10 @@ function Install-ScoopAppsIfMissing {
             }
             if (-not $scoopSuccess) { throw "Unable to install required application: $app" }
             Refresh-SessionPath
-            if ($app -notmatch 'nerd-fonts' -and -not (Get-Command $commandName -ErrorAction SilentlyContinue)) { throw "Installed app is not executable: $commandName" }
+            if ($app -notmatch 'nerd-fonts' -and -not (Test-SetupAppReady $commandName $PathCheck)) { throw "Installed app is not executable: $commandName" }
         } else {
             Refresh-SessionPath
-            if ($app -notmatch 'nerd-fonts' -and -not (Get-Command $commandName -ErrorAction SilentlyContinue)) {
+            if ($app -notmatch 'nerd-fonts' -and -not (Test-SetupAppReady $commandName $PathCheck)) {
                 throw "Scoop lists $app as installed, but $commandName is not executable after refreshing PATH. Repair the installation or its shims before retrying."
             }
             Write-Host "[OK] 应用已安装: $app" -ForegroundColor DarkGray
@@ -239,6 +251,64 @@ function Ensure-WindowsTerminalConfigured {
                 Write-Host "[OK] Windows Terminal 深度美化配置 (亚克力磨砂/Catppuccin配色/JetBrainsMono字体) 已部署至: $target" -ForegroundColor Green
             }
         }
+    }
+}
+
+function Register-TerminalShellProfile {
+    param([ValidateSet('NuShell','MSYS2')][string]$Shell, [string]$Msys2InstallPath)
+    $msysGuids=@(
+        '{17da3cac-b318-431e-8a3e-7fcdefe6d114}', '{71160544-14d8-4194-af25-d05feeac7233}',
+        '{2d51fdc4-a03b-4efe-81bc-722b7f6f3820}', '{16d4cd58-c9b9-4c8f-8e9e-9b7c4d8f3e2a}',
+        '{5e3c2b8f-9d4e-4a7b-8c3d-1f2e3a4b5c6d}'
+    )
+    $nuGuid='{a3f9c1e2-7b4d-4f6a-9c2d-1e5b8f3a7d6c}'
+    $msysCommand=if ($Shell -eq 'MSYS2') { Join-Path ([IO.Path]::GetFullPath($Msys2InstallPath)) 'msys2_shell.cmd' }
+    foreach ($target in @(Get-TerminalTargets -Components Terminal)) {
+        $path=$target.Target
+        if (-not (Test-Path -LiteralPath $path)) { continue }
+        try {
+            $json=[IO.File]::ReadAllText($path) | ConvertFrom-Json -ErrorAction Stop
+            if ($json -isnot [pscustomobject]) { throw 'Expected a settings object.' }
+            if (-not $json.PSObject.Properties['profiles']) { $json | Add-Member NoteProperty profiles ([pscustomobject]@{}) }
+            if ($json.profiles -isnot [pscustomobject]) { throw 'Expected a profiles object.' }
+            if (-not $json.profiles.PSObject.Properties['list']) { $json.profiles | Add-Member NoteProperty list @() }
+            if ($json.profiles.list -isnot [array]) { throw 'Expected profiles.list to be an array.' }
+            $found=$false; $changed=$false
+            foreach ($profile in $json.profiles.list) {
+                $exe=''; $arguments=''
+                if ([string]$profile.commandline -match '^\s*(?:"(?<exe>[^"]+)"|(?<exe>\S+))(?<arguments>.*)$') {
+                    $exe=$Matches.exe; $arguments=$Matches.arguments
+                }
+                $base=[IO.Path]::GetFileName($exe.Replace('/','\'))
+                if ($Shell -eq 'NuShell') {
+                    if ($base -in @('nu','nu.exe') -or $profile.guid -eq $nuGuid) { $found=$true }
+                } elseif ($base -eq 'msys2_shell.cmd') {
+                    if ($profile.guid -in $msysGuids) {
+                        # Only the executable changes; keep shell flags, names, icons and appearance.
+                        $command='"'+$msysCommand+'"'+$arguments
+                        if ($profile.commandline -cne $command) { $profile.commandline=$command; $changed=$true }
+                        $found=$true
+                    } elseif ([Environment]::ExpandEnvironmentVariables($exe).Replace('/','\') -eq $msysCommand) {
+                        $found=$true
+                    }
+                }
+            }
+            if (-not $found) {
+                $guid=if ($Shell -eq 'NuShell') { $nuGuid } else { $msysGuids[3] }
+                if (@($json.profiles.list | Where-Object guid -eq $guid).Count) { throw "Shell profile GUID is occupied by a different command: $guid" }
+                $profile=[pscustomobject]@{
+                    guid=$guid
+                    name=$(if ($Shell -eq 'NuShell') { 'NuShell' } else { 'MSYS2 UCRT64' })
+                    commandline=$(if ($Shell -eq 'NuShell') { 'nu.exe' } else { '"'+$msysCommand+'" -defterm -here -no-start -ucrt64' })
+                    startingDirectory='%USERPROFILE%'
+                    hidden=$false
+                }
+                $json.profiles.list=@($json.profiles.list)+@($profile)
+                $changed=$true
+            }
+            if ($changed) { Set-TerminalText $path ($json | ConvertTo-Json -Depth 100) }
+            Write-Host "[OK] Windows Terminal $Shell 启动入口已就绪: $path" -ForegroundColor Green
+        } catch { throw "Windows Terminal $Shell registration failed ($path): $($_.Exception.Message)" }
     }
 }
 
@@ -394,7 +464,7 @@ function Install-AppWithChocoWingetFallback {
         [string]$CommandCheck,
 
         [Parameter(Mandatory = $false)]
-        [string]$PathCheck
+        [string[]]$PathCheck
     )
 
     Initialize-SetupEnvironment
@@ -404,7 +474,7 @@ function Install-AppWithChocoWingetFallback {
         Write-Host "[OK] $Name 已就绪 ($((Get-Command $CommandCheck).Source))" -ForegroundColor DarkGray
         return $true
     }
-    if ($PathCheck -and (Test-Path -LiteralPath $PathCheck)) {
+    if ($PathCheck -and (Test-SetupAppReady -PathCheck $PathCheck)) {
         Write-Host "[OK] $Name 已安装在指定路径: $PathCheck" -ForegroundColor DarkGray
         return $true
     }
@@ -442,7 +512,7 @@ function Install-AppWithChocoWingetFallback {
     if ($chocoInstalled) {
         Refresh-SessionPath
         if ($CommandCheck -and -not (Get-Command $CommandCheck -ErrorAction SilentlyContinue)) { throw "Chocolatey reported success but $CommandCheck is missing." }
-        if ($PathCheck -and -not (Test-Path -LiteralPath $PathCheck)) { throw "Chocolatey reported success but $PathCheck is missing." }
+        if ($PathCheck -and -not (Test-SetupAppReady -PathCheck $PathCheck)) { throw "Chocolatey reported success but the expected executable is missing: $PathCheck" }
         return $true
     }
 
@@ -468,7 +538,7 @@ function Install-AppWithChocoWingetFallback {
                 Write-Host "[OK] [WinGet] $Name 安装成功！" -ForegroundColor Green
                 Refresh-SessionPath
                 if ($CommandCheck -and -not (Get-Command $CommandCheck -ErrorAction SilentlyContinue)) { throw "WinGet reported success but $CommandCheck is missing." }
-                if ($PathCheck -and -not (Test-Path -LiteralPath $PathCheck)) { throw "WinGet reported success but $PathCheck is missing." }
+                if ($PathCheck -and -not (Test-SetupAppReady -PathCheck $PathCheck)) { throw "WinGet reported success but the expected executable is missing: $PathCheck" }
                 return $true
             } else {
                 Write-Warning "[!] [WinGet] 安装返回退出码: $($process.ExitCode)，准备尝试 Scoop 终极保底..."
@@ -483,10 +553,10 @@ function Install-AppWithChocoWingetFallback {
         Write-Host "[*] [Scoop] 启用 Scoop 兜底安装 $Name (Scoop ID: $ScoopId)..." -ForegroundColor Cyan
         try {
             Ensure-ScoopBuckets -Buckets @('main', 'extras', 'versions')
-            Install-ScoopAppsIfMissing -Apps @($ScoopId)
+            Install-ScoopAppsIfMissing -Apps @($ScoopId) -PathCheck $PathCheck
             Refresh-SessionPath
             if ($CommandCheck -and -not (Get-Command $CommandCheck -ErrorAction SilentlyContinue)) { throw "Missing command: $CommandCheck" }
-            if ($PathCheck -and -not (Test-Path -LiteralPath $PathCheck)) { throw "Missing install path: $PathCheck" }
+            if ($PathCheck -and -not (Test-SetupAppReady -PathCheck $PathCheck)) { throw "Missing installed executable: $PathCheck" }
             return $true
         } catch {
             Write-Warning "[!] [Scoop] 安装 $Name 失败: $_"

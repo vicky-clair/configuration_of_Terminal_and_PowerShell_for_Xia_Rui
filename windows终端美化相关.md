@@ -172,8 +172,8 @@ pwsh -NoProfile -File .\Deploy-TerminalConfiguration.ps1
 
 | 脚本名称 | 适用目标 | 核心特性与主题定制 |
 | :--- | :--- | :--- |
-| [`Install-PowerShell7.ps1`](file:///c:/XMWJJ/powershelldome/Install-PowerShell7.ps1) | **PowerShell 7 (pwsh)** | 自动配置 Scoop 仓库与工具链、JetBrainsMono NF 字体、PSReadLine/Terminal-Icons 插件；**交互提示选择【1】固定主题 (Catppuccin Mocha，极速秒开)、【2】每日随机主题 (100+ 离线主题池)、【3】Starship 赛博朋克主题**。 |
-| [`Install-WinPowerShell51.ps1`](file:///c:/XMWJJ/powershelldome/Install-WinPowerShell51.ps1) | **Windows PowerShell 5.1** (系统内置) | 专为 Win 10/11 内置 PowerShell 及 Win 8.1 优化；**强制启用 UTF-8 解决中文乱码**；**固定精选高颜值极速 Starship 赛博朋克主题（秒开无卡顿）**；现代化别名与历史搜索。 |
+| [`Install-PowerShell7.ps1`](file:///c:/XMWJJ/powershelldome/Install-PowerShell7.ps1) | **PowerShell 7 (pwsh)** | 自动配置 Scoop 仓库与工具链（含 yazi 目录穿梭）、JetBrainsMono NF 字体、PSReadLine/Terminal-Icons 插件；**交互提示选择【1】每次启动随机主题 (120+ 离线主题池，回车默认)、【2】固定主题 (Catppuccin Mocha，极速秒开)、【3】Starship 赛博朋克主题**。 |
+| [`Install-WinPowerShell51.ps1`](file:///c:/XMWJJ/powershelldome/Install-WinPowerShell51.ps1) | **Windows PowerShell 5.1** (系统内置) | 专为 Win 10/11 内置 PowerShell 及 Win 8.1 优化；**强制启用 UTF-8 解决中文乱码**；**默认配置丰富随机主题（可选 -Theme Starship 赛博朋克主题）**；现代化别名与历史搜索。 |
 | [`Install-Cmd.ps1`](file:///c:/XMWJJ/powershelldome/Install-Cmd.ps1) | **CMD (命令提示符)** | 自动安装 Clink、Starship、Eza、Bat；**固定 Starship 赛博朋克霓虹主题**；**65001 UTF-8 与完整 Unix/Git Doskey 别名**；通过当前用户注册表 AutoRun 挂载，无需管理员权限，支持 `-Uninstall` 干净卸载。 |
 | [`Install-NuShell.ps1`](file:///c:/XMWJJ/powershelldome/Install-NuShell.ps1) | **NuShell (nu)** | 自动安装 NuShell 及配套工具；**配置 `env.nu` UTF-8 中文环境**；**自动挂载 Starship 赛博朋克提示符与 Zoxide 目录快跳**；配置 Fastfetch 启动横幅与 Unix/Git 常用别名；自动注册 Windows Terminal 配置项。 |
 | [`Install-MSYS2.ps1`](file:///c:/XMWJJ/powershelldome/Install-MSYS2.ps1) | **MSYS2 (bash)** | 定位或自动安装 MSYS2；**配置 `MSYS2_PATH_TYPE=inherit` 继承 Windows 本机环境变量**，可在 MSYS2 中直接调用 Windows 原生安装的工具；配置 `~/.bashrc` 强制 UTF-8、Starship 提示符、Fastfetch 横幅与别名；**自动检查并向 Windows Terminal 注册配置项（支持 `-Msys2InstallPath`）**。 |

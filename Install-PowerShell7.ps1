@@ -48,6 +48,7 @@ $coreApps = @(
     'zoxide',
     'fzf',
     'neovim',
+    'yazi',
     'lazydocker',
     'lazygit',
     'vfox',
