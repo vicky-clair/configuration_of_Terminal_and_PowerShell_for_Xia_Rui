@@ -185,6 +185,9 @@ alias gb='git branch'
 alias glog='git log --oneline --graph --decorate'
 alias gpull='git pull'
 alias gps='git push'
+alias lg='lazygit'
+alias lzg='lazygit'
+alias lzd='lazydocker'
 # <<< Windows Terminal Beautification for MSYS2 <<<
 '@
 

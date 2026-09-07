@@ -108,6 +108,7 @@ function Install-ScoopAppsIfMissing {
         'zoxide'      = 'ajeetdsouza.zoxide'
         'fzf'         = 'junegunn.fzf'
         'lazydocker'  = 'jesseduffield.lazydocker'
+        'lazygit'     = 'JesseDuffield.lazygit'
         'vfox'        = 'version-fox.vfox'
         'starship'    = 'Starship.Starship'
         'ripgrep'     = 'BurntSushi.ripgrep.MSVC'

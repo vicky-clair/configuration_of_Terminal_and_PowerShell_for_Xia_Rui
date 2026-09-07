@@ -1,5 +1,4 @@
-﻿# PowerShell 7 recommended; Windows PowerShell 5.1 supported with reduced features.
-# Dot-source this file from $PROFILE. No downloads or package installs at startup.
+﻿# Dot-source this file from $PROFILE. No downloads or package installs at startup.
 
 # Scoop normally manages PATH itself. Repair a missing entry without duplicating it.
 $profileScoopRoot = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $env:USERPROFILE 'scoop' }
@@ -40,7 +39,7 @@ function lt3 {
         eza --tree --level=3 --icons=auto --group-directories-first --color=auto @args
     } else { Get-ChildItem -Recurse -Depth 3 @args }
 }
-function lg {
+function llg {
     if (Get-Command eza -CommandType Application -ErrorAction SilentlyContinue) {
         eza --long --git --icons=auto --group-directories-first --color=auto @args
     } else { Get-ChildItem @args }
@@ -84,6 +83,14 @@ if (Get-Command yazi -CommandType Application -ErrorAction SilentlyContinue) {
 # Lazydocker alias
 if (Get-Command lazydocker -CommandType Application -ErrorAction SilentlyContinue) {
     Set-Alias lzd lazydocker
+}
+
+# Lazygit alias & integration (lg / lzg)
+if (Get-Command lazygit -CommandType Application -ErrorAction SilentlyContinue) {
+    Set-Alias lg lazygit
+    Set-Alias lzg lazygit
+} else {
+    function lg { llg @args }
 }
 
 # Neovim as default editor & quick aliases
@@ -246,151 +253,222 @@ function Pad-DisplayRight([string]$text, [int]$totalWidth) {
 function Show-FeatureTips {
     if ($env:POWERSHELL_PROFILE_MINIMAL -eq '1' -or $env:POWERSHELL_PROFILE_BANNER -eq '0' -or $env:POWERSHELL_PROFILE_TIPS -eq '0') { return }
 
-    $features = [System.Collections.Generic.List[string]]::new()
-    $warnings = [System.Collections.Generic.List[string]]::new()
+    $features = [System.Collections.Generic.List[object]]::new()
+    $warnings = [System.Collections.Generic.List[object]]::new()
 
     # 1. Yazi
     if (Get-Command yazi -CommandType Application -ErrorAction SilentlyContinue) {
-        $features.Add('yazi 目录穿梭 (y [path])')
+        $features.Add(@{ Name = 'yazi'; Desc = '目录穿梭'; Shortcut = 'y [path]' })
     } else {
-        $warnings.Add('yazi 文件管理器未就绪 (缺少 yazi: 请运行 scoop install yazi)')
+        $warnings.Add(@{ Name = 'yazi'; Message = '文件管理器未就绪'; Hint = 'scoop install yazi' })
     }
 
     # 2. fd
     if ((Get-Command fd -CommandType Application -ErrorAction SilentlyContinue) -and ($env:FZF_DEFAULT_COMMAND -like '*fd*')) {
-        $features.Add('fd 极速索引引擎 (FZF加速)')
+        $features.Add(@{ Name = 'fd'; Desc = '极速索引引擎'; Shortcut = 'FZF加速' })
     } else {
-        $warnings.Add('fd 索引引擎未就绪 (缺少 fd: 请运行 scoop install fd)')
+        $warnings.Add(@{ Name = 'fd'; Message = '索引引擎未就绪'; Hint = 'scoop install fd' })
     }
 
     # 3. bat + eza preview
     $hasBat = [bool](Get-Command bat -CommandType Application -ErrorAction SilentlyContinue)
     $hasEza = [bool](Get-Command eza -CommandType Application -ErrorAction SilentlyContinue)
     if ($hasBat -and $hasEza -and ($env:FZF_DEFAULT_OPTS -like '*--preview*')) {
-        $features.Add('bat+eza 画中画实时预览')
+        $features.Add(@{ Name = 'bat+eza'; Desc = '画中画实时预览'; Shortcut = '智能高亮' })
     } else {
         $missing = @()
         if (-not $hasBat) { $missing += 'bat' }
         if (-not $hasEza) { $missing += 'eza' }
-        $warnings.Add("FZF 画中画预览已降级 (缺少 $($missing -join ', '): 建议运行 scoop install $($missing -join ' '))")
+        $warnings.Add(@{ Name = ($missing -join '/'); Message = '画中画预览已降级'; Hint = "scoop install $($missing -join ' ')" })
     }
 
     # 4. fzf & PSFzf
     $hasFzf = [bool](Get-Command fzf -CommandType Application -ErrorAction SilentlyContinue)
     $hasPsFzf = [bool](Get-Module PSFzf) -or [bool](Get-Module -ListAvailable PSFzf)
     if ($hasFzf -and $hasPsFzf) {
-        $features.Add('fzf 模糊搜索 (Ctrl+R/F/Alt+Z)')
+        $features.Add(@{ Name = 'fzf'; Desc = '模糊搜索'; Shortcut = 'Ctrl+R/F/Alt+Z' })
     } elseif ($hasFzf) {
-        $features.Add('fzf 基础模糊查找 (CLI模式)')
-        $warnings.Add('PSFzf 快捷键未加载 (缺少模块: 请运行 Install-Module PSFzf)')
+        $features.Add(@{ Name = 'fzf'; Desc = '基础模糊查找'; Shortcut = 'CLI模式' })
+        $warnings.Add(@{ Name = 'PSFzf'; Message = '快捷键未加载'; Hint = 'Install-Module PSFzf' })
     } else {
-        $warnings.Add('fzf 模糊检索未就绪 (缺少 fzf: 请运行 scoop install fzf)')
+        $warnings.Add(@{ Name = 'fzf'; Message = '模糊检索未就绪'; Hint = 'scoop install fzf' })
     }
 
     # 5. eza
     if ($hasEza) {
-        $features.Add('eza 现代文件列表 (ll/la/lt/lg)')
+        $features.Add(@{ Name = 'eza'; Desc = '现代文件列表'; Shortcut = 'll/la/lt/llg' })
     } else {
-        $warnings.Add('eza 现代化 ls 未启用 (缺少 eza: 请运行 scoop install eza)')
+        $warnings.Add(@{ Name = 'eza'; Message = '现代化 ls 未启用'; Hint = 'scoop install eza' })
     }
 
     # 6. lazydocker
     if (Get-Command lazydocker -CommandType Application -ErrorAction SilentlyContinue) {
-        $features.Add('lazydocker 容器管家 (lzd)')
+        $features.Add(@{ Name = 'lazydocker'; Desc = '容器管家'; Shortcut = 'lzd' })
     } else {
-        $warnings.Add('lazydocker 未安装 (缺少 lazydocker: 请运行 scoop install lazydocker)')
+        $warnings.Add(@{ Name = 'lazydocker'; Message = '容器管理未安装'; Hint = 'scoop install lazydocker' })
     }
 
     # 7. Neovim
     if ((Get-Command nvim -CommandType Application -ErrorAction SilentlyContinue) -and ($env:EDITOR -eq 'nvim')) {
-        $features.Add('Neovim 默认编辑器 (v/fv)')
+        $features.Add(@{ Name = 'Neovim'; Desc = '默认编辑器'; Shortcut = 'v/fv' })
     } else {
-        $warnings.Add('Neovim 未就绪 (建议运行: scoop install neovim)')
+        $warnings.Add(@{ Name = 'neovim'; Message = '编辑器未设默认'; Hint = 'scoop install neovim' })
     }
 
     # 8. zoxide
     $hasZoxide = [bool](Get-Command zoxide -CommandType Application -ErrorAction SilentlyContinue)
     $zoxideHooked = $profileZoxideReady -or $script:profileZoxideReady -or [bool](Get-Command __zoxide_z -ErrorAction SilentlyContinue)
     if ($hasZoxide -and $zoxideHooked) {
-        $features.Add('zoxide 智能目录快跳 (z/zi)')
+        $features.Add(@{ Name = 'zoxide'; Desc = '智能目录快跳'; Shortcut = 'z/zi' })
     } elseif ($hasZoxide) {
-        $features.Add('zoxide 智能跳转 (CLI模式就绪)')
+        $features.Add(@{ Name = 'zoxide'; Desc = '智能跳转就绪'; Shortcut = 'CLI模式' })
     } else {
-        $warnings.Add('zoxide 智能跳转未生效 (缺少 zoxide: 请运行 scoop install zoxide)')
+        $warnings.Add(@{ Name = 'zoxide'; Message = '智能快跳未生效'; Hint = 'scoop install zoxide' })
     }
 
     # 9. fif (Find in files)
     $hasRg = [bool](Get-Command rg -CommandType Application -ErrorAction SilentlyContinue)
     if ($hasRg -and $hasFzf -and $hasBat) {
-        $features.Add('fif 全文代码检索 (fif <词>)')
+        $features.Add(@{ Name = 'fif'; Desc = '全文代码检索'; Shortcut = 'fif <词>' })
     } else {
         $missing = @()
         if (-not $hasRg) { $missing += 'ripgrep' }
         if (-not $hasFzf) { $missing += 'fzf' }
         if (-not $hasBat) { $missing += 'bat' }
-        $warnings.Add("fif 全文检索未就绪 (缺少 $($missing -join ', '): 建议运行 scoop install $($missing -join ' '))")
+        $warnings.Add(@{ Name = 'fif'; Message = '全文检索未就绪'; Hint = "scoop install $($missing -join ' ')" })
     }
 
     # 10. Fastfetch
     if (Get-Command fastfetch -CommandType Application -ErrorAction SilentlyContinue) {
-        $features.Add('fastfetch 动漫硬件看板')
+        $features.Add(@{ Name = 'fastfetch'; Desc = '动漫硬件看板'; Shortcut = '系统状态' })
     } else {
-        $warnings.Add('fastfetch 硬件面板未就绪 (缺少 fastfetch: 请运行 scoop install fastfetch)')
+        $warnings.Add(@{ Name = 'fastfetch'; Message = '硬件面板未就绪'; Hint = 'scoop install fastfetch' })
+    }
+
+    # 11. lazygit
+    if (Get-Command lazygit -CommandType Application -ErrorAction SilentlyContinue) {
+        $features.Add(@{ Name = 'lazygit'; Desc = 'Git管家'; Shortcut = 'lg/Ctrl+G' })
+    } else {
+        $warnings.Add(@{ Name = 'lazygit'; Message = 'Git管理未安装'; Hint = 'scoop install lazygit' })
+    }
+
+    # 12. Starship
+    if (Get-Command starship -CommandType Application -ErrorAction SilentlyContinue) {
+        $features.Add(@{ Name = 'starship'; Desc = '赛博提示符'; Shortcut = '已就绪' })
     }
 
     if ($global:VFOX_SKIPPED) {
-        $warnings.Add('vfox 版本管理初始化失败或超时，本次已跳过')
+        $warnings.Add(@{ Name = 'vfox'; Message = '版本管理初始化超时'; Hint = '已自动降级跳过' })
     }
 
     $winWidth = 100
     try { $winWidth = $Host.UI.RawUI.WindowSize.Width } catch {}
 
-    if ($winWidth -lt 82) {
+    # 针对极端窄屏（小于 72 字符）自适应流式输出
+    if ($winWidth -lt 72) {
+        Write-Host "`n🚀 终端现代化生产力就绪看板:" -ForegroundColor Cyan
         foreach ($f in $features) {
-            Write-Host "  ✓ $f" -ForegroundColor Green
+            Write-Host "  ✓ " -NoNewline -ForegroundColor Green
+            Write-Host $f.Name -NoNewline -ForegroundColor Cyan
+            Write-Host " $($f.Desc) " -NoNewline -ForegroundColor White
+            Write-Host "($($f.Shortcut))" -ForegroundColor Yellow
         }
         foreach ($w in $warnings) {
-            Write-Host "  ✗ $w" -ForegroundColor Yellow
+            Write-Host "  ✗ " -NoNewline -ForegroundColor Yellow
+            Write-Host "$($w.Name) $($w.Message) " -NoNewline -ForegroundColor White
+            Write-Host "(运行: $($w.Hint))" -ForegroundColor Cyan
         }
+        Write-Host "  ⚡ 快捷按键: " -NoNewline -ForegroundColor Magenta
+        Write-Host "[Ctrl+R] 历史搜 · [Alt+Z/zi] 目录跳 · [Ctrl+F] 文件填" -ForegroundColor Yellow
+        Write-Host "  ⚡ 效率指令: " -NoNewline -ForegroundColor Magenta
+        Write-Host "[lg/Ctrl+G] Lazygit · [fv] 模糊编辑 · [fif] 全文搜" -ForegroundColor Yellow
         Write-Host ""
         return
     }
 
-    Write-Host "┌─ 🚀 终端现代化生产力就绪看板 ────────────────────────────────────────────────────────┐" -ForegroundColor DarkCyan
+    # 宽屏双列流式卡片（左侧流式垂直线，右侧开放无碎边）
+    Write-Host ""
+    Write-Host "╭── 🚀 终端现代化生产力就绪看板 ──────────────────────────────────────" -ForegroundColor Cyan
+
     for ($i = 0; $i -lt $features.Count; $i += 2) {
-        $item1 = $features[$i]
-        $item2 = if ($i + 1 -lt $features.Count) { $features[$i + 1] } else { '' }
+        $it1 = $features[$i]
+        $it2 = if ($i + 1 -lt $features.Count) { $features[$i + 1] } else { $null }
 
-        Write-Host "│ " -NoNewline -ForegroundColor DarkCyan
+        # 左侧引导指示线
+        Write-Host "│  " -NoNewline -ForegroundColor Cyan
+
+        # 第 1 列
         Write-Host "✓ " -NoNewline -ForegroundColor Green
-        Write-Host (Pad-DisplayRight $item1 36) -NoNewline -ForegroundColor White
-        Write-Host " " -NoNewline
+        Write-Host $it1.Name -NoNewline -ForegroundColor Cyan
+        Write-Host " $($it1.Desc) " -NoNewline -ForegroundColor White
+        Write-Host "($($it1.Shortcut))" -NoNewline -ForegroundColor Yellow
 
-        if ($item2) {
+        $text1 = "$($it1.Name) $($it1.Desc) ($($it1.Shortcut))"
+        $w1 = Get-DisplayWidth $text1
+        $col1Width = 38
+        $pad = if ($col1Width -gt $w1) { ' ' * ($col1Width - $w1) } else { '  ' }
+        Write-Host $pad -NoNewline
+
+        # 第 2 列
+        if ($it2) {
             Write-Host "✓ " -NoNewline -ForegroundColor Green
-            Write-Host (Pad-DisplayRight $item2 36) -NoNewline -ForegroundColor White
-        } else {
-            Write-Host (' ' * 38) -NoNewline
+            Write-Host $it2.Name -NoNewline -ForegroundColor Cyan
+            Write-Host " $($it2.Desc) " -NoNewline -ForegroundColor White
+            Write-Host "($($it2.Shortcut))" -NoNewline -ForegroundColor Yellow
         }
-        Write-Host " │" -ForegroundColor DarkCyan
+        Write-Host ""
     }
 
+    # 警告项展示（鲜明彩色提示修复命令）
     if ($warnings.Count -gt 0) {
-        Write-Host "├───────────────────────────────────────────────────────────────────────────────────────┤" -ForegroundColor DarkYellow
+        Write-Host "│" -ForegroundColor Cyan
         foreach ($w in $warnings) {
-            Write-Host "│ " -NoNewline -ForegroundColor DarkYellow
+            Write-Host "│  " -NoNewline -ForegroundColor Cyan
             Write-Host "✗ " -NoNewline -ForegroundColor Yellow
-            Write-Host (Pad-DisplayRight $w 74) -NoNewline -ForegroundColor Yellow
-            Write-Host " │" -ForegroundColor DarkYellow
+            Write-Host "$($w.Name) $($w.Message) " -NoNewline -ForegroundColor White
+            Write-Host "(运行: $($w.Hint))" -ForegroundColor Cyan
         }
     }
 
-    Write-Host "├───────────────────────────────────────────────────────────────────────────────────────┤" -ForegroundColor DarkCyan
-    $footer = "⚡ 快捷操作: [Ctrl+R] 历史搜 | [Alt+Z/zi] 目录跳 | [Ctrl+F] 文件填 | [fv] 模糊编辑 | [fif] 全文搜"
-    Write-Host "│ " -NoNewline -ForegroundColor DarkCyan
-    Write-Host (Pad-DisplayRight $footer 76) -NoNewline -ForegroundColor DarkGray
-    Write-Host " │" -ForegroundColor DarkCyan
-    Write-Host "└───────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor DarkCyan
+    # 底部快捷提示条（分两行结构化输出：按键 + 指令，杜绝单行超长出框）
+    Write-Host "│" -ForegroundColor Cyan
+
+    # 第 1 行：常用快捷按键
+    Write-Host "│  " -NoNewline -ForegroundColor Cyan
+    Write-Host "⚡ 快捷按键: " -NoNewline -ForegroundColor Magenta
+    $hotkeys = @(
+        @{ Key = '[Ctrl+R]'; Action = '历史搜' },
+        @{ Key = '[Alt+Z/zi]'; Action = '目录跳' },
+        @{ Key = '[Ctrl+F]'; Action = '文件填' }
+    )
+    for ($k = 0; $k -lt $hotkeys.Count; $k++) {
+        $s = $hotkeys[$k]
+        Write-Host $s.Key -NoNewline -ForegroundColor Yellow
+        Write-Host " $($s.Action)" -NoNewline -ForegroundColor Cyan
+        if ($k -lt $hotkeys.Count - 1) {
+            Write-Host " · " -NoNewline -ForegroundColor White
+        }
+    }
+    Write-Host ""
+
+    # 第 2 行：现代效率指令
+    Write-Host "│  " -NoNewline -ForegroundColor Cyan
+    Write-Host "⚡ 效率指令: " -NoNewline -ForegroundColor Magenta
+    $cliShortcuts = @(
+        @{ Key = '[lg/Ctrl+G]'; Action = 'Lazygit' },
+        @{ Key = '[fv]'; Action = '模糊编辑' },
+        @{ Key = '[fif]'; Action = '全文搜' }
+    )
+    for ($k = 0; $k -lt $cliShortcuts.Count; $k++) {
+        $s = $cliShortcuts[$k]
+        Write-Host $s.Key -NoNewline -ForegroundColor Yellow
+        Write-Host " $($s.Action)" -NoNewline -ForegroundColor Cyan
+        if ($k -lt $cliShortcuts.Count - 1) {
+            Write-Host " · " -NoNewline -ForegroundColor White
+        }
+    }
+    Write-Host ""
+    Write-Host "╰─────────────────────────────────────────────────────────────────────" -ForegroundColor Cyan
     Write-Host ""
 }
 
@@ -486,6 +564,8 @@ function Test-Environment {
         @{Name="Eza"; Command="eza"; Required=$false},
         @{Name="Bat"; Command="bat"; Required=$false},
         @{Name="Fzf"; Command="fzf"; Required=$false},
+        @{Name="Lazygit"; Command="lazygit"; Required=$false},
+        @{Name="Lazydocker"; Command="lazydocker"; Required=$false},
         @{Name="Vfox"; Command="vfox"; Required=$false}
     )
 
@@ -657,6 +737,12 @@ if (Get-Module -ListAvailable PSReadLine) {
             if (Get-Module -ListAvailable PSFzf) {
                 Import-Module PSFzf -ErrorAction Stop
                 Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+f' -PSReadlineChordReverseHistory 'Ctrl+r'
+            }
+        }
+        if (Get-Command lazygit -CommandType Application -ErrorAction SilentlyContinue) {
+            Set-PSReadLineKeyHandler -Chord 'Ctrl+g' -BriefDescription 'Launch Lazygit' -ScriptBlock {
+                & lazygit
+                [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
             }
         }
     } catch { Write-Warning "PSReadLine/PSFzf: $_" }

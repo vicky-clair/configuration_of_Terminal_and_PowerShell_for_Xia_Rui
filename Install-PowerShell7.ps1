@@ -48,6 +48,7 @@ $coreApps = @(
     'fzf',
     'neovim',
     'lazydocker',
+    'lazygit',
     'vfox',
     'nerd-fonts/JetBrainsMono-NF'
 )

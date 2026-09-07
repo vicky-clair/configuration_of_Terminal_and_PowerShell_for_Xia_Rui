@@ -27,6 +27,9 @@ doskey glog=git log --oneline --graph --all $*
 doskey gpull=git pull $*
 doskey gps=git push $*
 doskey gd=git diff $*
+doskey lg=lazygit $*
+doskey lzg=lazygit $*
+doskey lzd=lazydocker $*
 
 rem 3. Inject Clink readline enhancement and Starship prompt if available
 if exist "C:\Program Files (x86)\clink\clink.bat" (
@@ -58,6 +61,10 @@ where rg >nul 2>&1
 if not errorlevel 1 echo   ✓ ripgrep 极速搜索已启用 (别名: grep)
 where git >nul 2>&1
 if not errorlevel 1 echo   ✓ Git 快捷别名已加载 (g, gst, gco, gb, glog)
+where lazygit >nul 2>&1
+if not errorlevel 1 echo   ✓ lazygit 终端Git管家已启用 (命令: lg, lzg)
+where lazydocker >nul 2>&1
+if not errorlevel 1 echo   ✓ lazydocker 容器管家已启用 (命令: lzd)
 where starship >nul 2>&1
 if not errorlevel 1 echo   ✓ Starship 赛博朋克提示符与 Clink 已加载
 where fastfetch >nul 2>&1
