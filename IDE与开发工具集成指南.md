@@ -139,8 +139,10 @@ JetBrains IDE 允许终端拥有独立的字体配置（不影响代码编辑器
 - 勾选 **Override IDE encoding (覆盖 IDE 编码)** 并确保选择为 **UTF-8**；
 - 在 **Environment variables (环境变量)** 中点击右侧图标添加：
   - 名称：`PYTHONIOENCODING`，值：`utf-8`
-  - *(可选)* 若希望在 IDE 终端里隐藏庞大的 Fastfetch ASCII 硬件面板以获得最大可视空间，添加变量：
+  - *(可选)* 若希望在 IDE 终端里隐藏 Fastfetch 字符画以获得最大可视空间，添加变量：
     - 名称：`POWERSHELL_PROFILE_BANNER`，值：`0`
+  - *(可选)* 若追求 IDE 内置终端极致秒开（~241ms），可直接开启极简模式：
+    - 名称：`POWERSHELL_PROFILE_MINIMAL`，值：`1`
 
 ---
 
@@ -159,17 +161,19 @@ JetBrains IDE 允许终端拥有独立的字体配置（不影响代码编辑器
   ```
   在 IDE 终端中输入 `chcp`，确保输出为 `65001`。
 
-### 3. 在 IDE 中启动终端觉得太宽，想关掉 Fastfetch 字符画？
+### 3. 在 IDE 中启动终端觉得太宽，想关掉 Fastfetch 字符画或极速秒开？
 - **快捷方法**：
   在您的项目环境或者终端中，只需执行：
   ```powershell
   $env:POWERSHELL_PROFILE_BANNER = '0'
+  # 或开启极简秒开模式 (~241ms)：
+  $env:POWERSHELL_PROFILE_MINIMAL = '1'
   ```
   或在 IDE 的 Terminal 环境变量设置中配置 `POWERSHELL_PROFILE_BANNER=0`，下次打开终端即可享受零横幅极速秒开模式。
 
 ### 4. 快捷键与 IDE 查找快捷键冲突？
-- 本终端套件提供了快捷文件搜索 `fv`（模糊查文件 + 预览 + Neovim 打开）和全局关键字秒搜 `fif`（Ripgrep + FZF + 实时高亮）：
-  - 在内置终端中直接输入 `fv` 或 `fif` 即可直接激活，无需按 Ctrl+F / Ctrl+R，完美避免与 IDE 全局搜索热键冲突！
+- 本终端套件提供了快捷文件搜索 `fv`（模糊查文件 + 预览 + Neovim 打开）和全局关键字流式秒搜 `fif <关键词>`（Ripgrep + FZF 管道流式实时高亮）：
+  - 在内置终端中直接输入 `fv` 或 `fif <搜索词>` 即可直接激活，无需按 Ctrl+F / Ctrl+R，完美避免与 IDE 全局搜索热键冲突！
 
 ### 5. 在 IDE 终端中使用 Lazygit 极速版本管理
 - 随时在 IDE 底部终端中输入 `lg`、`lzg`，或直接按下 `Ctrl+G`，即可在 IDE 内全屏呼出 Lazygit 进行交互式暂存、提交、分支合并与解决冲突；
