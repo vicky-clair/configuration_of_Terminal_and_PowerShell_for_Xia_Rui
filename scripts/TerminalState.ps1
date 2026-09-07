@@ -112,13 +112,16 @@ function Get-TerminalRegistryState($Spec) {
 }
 
 function Set-TerminalRegistryState($State) {
+    if ($State.Key -notlike 'HKCU:\*') { throw "Unsupported registry hive: $($State.Key)" }
+    $subKey=$State.Key.Substring(6)
     if ($State.Existed) {
-        if (-not (Test-Path -LiteralPath $State.Key)) { New-Item -Path $State.Key -Force -ErrorAction Stop | Out-Null }
-        $key=Get-Item -LiteralPath $State.Key -ErrorAction Stop
+        # Registry provider Get-Item handles may be read-only. Explicitly open a writable handle.
+        $key=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($subKey)
         try { $key.SetValue($State.Name, $State.Value, ([Enum]::Parse([Microsoft.Win32.RegistryValueKind], $State.Kind))) }
         finally { $key.Close() }
-    } elseif (Test-Path -LiteralPath $State.Key) {
-        $key=Get-Item -LiteralPath $State.Key -ErrorAction Stop
+    } else {
+        $key=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($subKey,$true)
+        if ($null -eq $key) { return }
         try { $key.DeleteValue($State.Name, $false) } finally { $key.Close() }
     }
 }
