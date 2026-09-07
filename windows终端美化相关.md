@@ -30,7 +30,7 @@
 ### 1. Windows Terminal 外观
 - **配色方案**：`Catppuccin Mocha`（底色 `#1E1E2E`，青蓝/粉紫/金黄点缀）。
 - **字体**：`JetBrainsMono Nerd Font Mono`，字号 `11`，行高系数 `1.2`，完美支持所有图标与连字。
-- **背景与亚克力**：继承壁纸 `C:\Users\xasr2\Pictures\壁纸文件\dde5a5767u6579.jpg`，透明度 `0.4`，亚克力模糊启用（`useAcrylic: true`），窗口不透明度 `80`。
+- **背景与亚克力**：支持亚克力毛玻璃模糊（`useAcrylic: true`，窗口不透明度 `80%`），并支持叠加自定义背景壁纸（推荐透明度 `0.4`，拉伸模式 `uniformToFill`；详见下方 [FAQ 与最佳实践](#-核心逻辑说明与配置最佳实践-faq)）。
 - **光标风格**：竖线光标（`bar`），更加现代化。
 - **快捷键**：保留原生 `Ctrl+C` / `Ctrl+V`，`Alt+Shift+D` 自动分屏，`Ctrl+Shift+F` 快速搜索。
 
@@ -55,6 +55,54 @@
   - `g`, `gst`, `gco`, `gb`, `glog`, `gpull`, `gps`：常用 Git 命令别名。
 - **Clink 赋能**：集成 `Clink 1.8.8`，实现类 Bash 的 Tab 补全、历史上下翻阅、输入着色。
 - **Starship 提示符**：挂载赛博朋克霓虹渐变提示符，与 PowerShell 体验相得益彰。
+
+---
+
+## 💡 核心逻辑说明与配置最佳实践 (FAQ)
+
+### Q1: 运行安装脚本时，Windows Terminal 会自动同时安装吗？
+**答：不会。**
+- **脚本设计职责**：本项目的安装脚本（如 [`Install-All.ps1`](file:///c:/XMWJJ/powershelldome/Install-All.ps1)、[`Install-PowerShell7.ps1`](file:///c:/XMWJJ/powershelldome/Install-PowerShell7.ps1)）定位为**“环境配置与美化部署”**，而非宿主分发工具。
+- **执行逻辑**：脚本在安装阶段会自动检测当前系统中是否已有 Windows Terminal 的安装目录：
+  - 若检测到已安装，会提示并注入深度定制的 [`settings.json`](file:///c:/XMWJJ/powershelldome/settings.json)（配色、字体、快捷键、亚克力等）；
+  - 若未检测到（如未安装 Terminal 的纯净环境），脚本会跳过 Terminal 配置，继续配置原生控制台（PowerShell / CMD / NuShell 等依然生效）。
+- **如何提前安装 Windows Terminal**：
+  - **Windows 11**：出厂自带，无需手动安装。
+  - **Windows 10 / Server**：推荐提前安装以获取最佳体验：
+    ```powershell
+    winget install Microsoft.WindowsTerminal
+    ```
+    或直接前往 **Microsoft Store** 搜索 `Windows Terminal` 安装。
+
+### Q2: 终端背景图片是否需要备份/打包到项目文件内？为什么推荐用户自行配置？
+**答：强烈推荐由用户在 Terminal 图形界面中自行配置，不需要也不建议强行打包在项目中。**
+原因如下：
+1. **避免绝对路径跨机失效**：每个用户的计算机用户名和文件目录各异，在 `settings.json` 中写死特定路径（如 `%USERPROFILE%\Pictures\壁纸文件\...`）在其他电脑上会导致路径悬空或失效。
+2. **审美与隐私高度个性化**：背景壁纸属于非常主观的个人视觉偏好（动漫、极简、赛博朋克、纯黑等），通用项目不宜强行绑定特定图片。
+3. **Windows Terminal 原生图形界面极简易用**：自带直观可视化设置面板，支持实时无缝预览，操作仅需数秒。
+4. **无图状态已有顶级质感**：项目已预置 Catppuccin Mocha 顶级暗色主题与 `useAcrylic: true`（80% 窗口不透明度），在没有背景壁纸时，会直接呈现通透深邃的亚克力磨砂毛玻璃黑曜石效果，极度耐看。
+5. **保持 Git 仓库轻量**：避免将数兆至数十兆的二进制大图片放入 Git 历史。
+
+#### 🖼️ 背景壁纸配置三步指引：
+1. 打开 Windows Terminal，按快捷键 <kbd>Ctrl</kbd> + <kbd>,</kbd> 打开 **设置**；
+2. 在左侧菜单点击 **「默认值」**（全局生效）或选择特定 Shell（如 **「PowerShell」**），切换到顶部 **「外观」** 选项卡；
+3. 向下滚动到 **「背景图像」** 区域：
+   - 点击 **「浏览」** 选择您的本地图片；
+   - **背景图像拉伸模式**：推荐选择 **均匀填满 (uniformToFill)**；
+   - **背景图像不透明度**：推荐调节为 **`0.35` ~ `0.45`**（既能清晰展现壁纸美感，又不会干扰命令行文字阅读）；
+   - 点击右下角 **「保存」** 即可实时生效！
+
+### Q3: 安装 MSYS2 后，Windows Terminal 下拉菜单没有 MSYS2，脚本会自动补全吗？
+**答：脚本会自动为您补全！**
+- **原生缺失原因**：Windows Terminal 官方默认只会动态探测 WSL、PowerShell Core、Azure 与 VS 开发者提示符；而 MSYS2 官方安装程序**并不会主动向 Windows Terminal 注入配置**，因此独立安装 MSYS2 后 Terminal 下拉列表默认找不到它。
+- **本项目的双重自动注册机制**：
+  1. **动态智能注入**：只要运行 [`Install-MSYS2.ps1`](file:///c:/XMWJJ/powershelldome/Install-MSYS2.ps1)（或总装 `Install-All.ps1 -All`），脚本会自动扫描本地 Terminal 的 `settings.json`；若未包含 MSYS2，会自动生成一条 `MSYS2 UCRT64` 配置项并追加到 `profiles.list` 中。
+  2. **项目完整模板覆盖**：若应用了项目自带的 [`settings.json`](file:///c:/XMWJJ/powershelldome/settings.json)，该配置中已预先内置了 5 大 MSYS2 子环境（MSYS、UCRT64、CLANG64、MINGW64、MINGW32），带独立图标与启动参数。
+- **自定义安装路径支持**：若您的 MSYS2 安装在非默认目录（非 `C:\msys64`），只需在执行安装脚本时传参：
+  ```powershell
+  pwsh -File .\Install-MSYS2.ps1 -Msys2InstallPath "D:\Tools\msys64"
+  ```
+  脚本会自动将实际存在的物理路径（如 `D:\Tools\msys64\msys2_shell.cmd`）写入 Terminal 配置中。
 
 ---
 
@@ -128,7 +176,7 @@ pwsh -NoProfile -File .\Deploy-TerminalConfiguration.ps1
 | [`Install-WinPowerShell51.ps1`](file:///c:/XMWJJ/powershelldome/Install-WinPowerShell51.ps1) | **Windows PowerShell 5.1** (系统内置) | 专为 Win 10/11 内置 PowerShell 及 Win 8.1 优化；**强制启用 UTF-8 解决中文乱码**；**固定精选高颜值极速 Starship 赛博朋克主题（秒开无卡顿）**；现代化别名与历史搜索。 |
 | [`Install-Cmd.ps1`](file:///c:/XMWJJ/powershelldome/Install-Cmd.ps1) | **CMD (命令提示符)** | 自动安装 Clink、Starship、Eza、Bat；**固定 Starship 赛博朋克霓虹主题**；**65001 UTF-8 与完整 Unix/Git Doskey 别名**；通过当前用户注册表 AutoRun 挂载，无需管理员权限，支持 `-Uninstall` 干净卸载。 |
 | [`Install-NuShell.ps1`](file:///c:/XMWJJ/powershelldome/Install-NuShell.ps1) | **NuShell (nu)** | 自动安装 NuShell 及配套工具；**配置 `env.nu` UTF-8 中文环境**；**自动挂载 Starship 赛博朋克提示符与 Zoxide 目录快跳**；配置 Fastfetch 启动横幅与 Unix/Git 常用别名；自动注册 Windows Terminal 配置项。 |
-| [`Install-MSYS2.ps1`](file:///c:/XMWJJ/powershelldome/Install-MSYS2.ps1) | **MSYS2 (bash)** | 定位或自动安装 MSYS2；**配置 `MSYS2_PATH_TYPE=inherit` 继承 Windows 本机环境变量**，可在 MSYS2 中直接调用 Windows 原生安装的工具；配置 `~/.bashrc` 强制 UTF-8、Starship 提示符、Fastfetch 横幅与别名。 |
+| [`Install-MSYS2.ps1`](file:///c:/XMWJJ/powershelldome/Install-MSYS2.ps1) | **MSYS2 (bash)** | 定位或自动安装 MSYS2；**配置 `MSYS2_PATH_TYPE=inherit` 继承 Windows 本机环境变量**，可在 MSYS2 中直接调用 Windows 原生安装的工具；配置 `~/.bashrc` 强制 UTF-8、Starship 提示符、Fastfetch 横幅与别名；**自动检查并向 Windows Terminal 注册配置项（支持 `-Msys2InstallPath`）**。 |
 | [`Install-All.ps1`](file:///c:/XMWJJ/powershelldome/Install-All.ps1) | **全终端总装** | 一键按序安装配置上述终端环境，支持 `-IncludeNuShell`、`-IncludeMSYS2` 或 `-All` 安装全部 5 种终端。 |
 
 #### 包管理器容错降级策略（Choco -> WinGet 仓库自动配置 -> Scoop）

@@ -109,6 +109,19 @@ powershelldome/
 
 ---
 
+## ⚠️ 重要安装须知与备份提示 (Please Read First)
+
+> [!WARNING]
+> **环境适用性与免责声明**：
+> 1. **脚本并非 100% 适合所有电脑环境**：虽然本项目针对 Windows 11、Windows 10 及 Windows 8.1 进行了多轮兼容测试与三级容错设计，但不同设备的系统版本分支（如精简版、Ghost 系统、LTSC、部分 Windows Server、企业组策略严格限制的办公机）、已有的第三方工具链、PowerShell 执行策略以及既有环境变量各不相同，安装过程中仍可能遇到不可预期的依赖冲突或环境差异。
+> 2. **务必提前手动备份原有数据与配置**：在执行任何安装脚本前，**请务必自行手动备份好电脑中原有的终端配置与重要数据**（包括原有的 PowerShell Profile `$PROFILE`、已有 Windows Terminal 的自定义 `settings.json`、注册表 AutoRun 启动项及个人重要配置）。虽然本套件内置了自动快照与回退机制（[`Restore-All.ps1`](file:///c:/XMWJJ/powershelldome/Restore-All.ps1)），但手动异地留档依然是保障系统环境安全的最优习惯。
+> 3. **Windows Terminal 宿主安装说明**：本项目的安装脚本**定位为“环境美化与配置”，不会自动下载并安装 Windows Terminal 软件本体**。
+>    - Windows 11 已默认内置 Windows Terminal；
+>    - 若使用 Windows 10 或尚未安装 Terminal 的系统，脚本仍会正常配置 pwsh/cmd 原生终端，但会自动跳过 Terminal 美化。建议提前通过 Microsoft Store 或在命令行执行 `winget install Microsoft.WindowsTerminal` 安装。
+> 4. **关于终端背景壁纸**：本项目注重多机分发的通用性与便携性，**未在仓库中强行捆绑个人大体积壁纸文件**。Windows Terminal 原生内置了便捷的图形化外观设置。如需设置心仪的壁纸，只需打开 Terminal 按 <kbd>Ctrl</kbd> + <kbd>,</kbd> 进入设置 $\rightarrow$ `默认值` $\rightarrow$ `外观` $\rightarrow$ `背景图像` 即可一键选取并实时预览（详情参阅 [windows终端美化相关.md](file:///c:/XMWJJ/powershelldome/windows终端美化相关.md)）。
+
+---
+
 ## 🚀 快速开始
 
 ### 方式一：全终端一键总装（推荐）
@@ -143,8 +156,10 @@ powershell.exe -ExecutionPolicy Bypass -File .\Install-All.ps1 -All
 | **PowerShell 7** | `pwsh -File .\Install-PowerShell7.ps1` | **直接回车默认采用 [1] 每次启动随机主题**，亦可输入 `2` 选择 Catppuccin 固定主题或 `3` Starship |
 | **Windows PowerShell 5.1** | `powershell.exe -ExecutionPolicy Bypass -File .\Install-WinPowerShell51.ps1` | 配置 UTF-8 编码，默认加载 Starship 主题 |
 | **CMD (命令提示符)** | `pwsh -File .\Install-Cmd.ps1` | 自动挂载 Clink 补全与 Starship 提示符（支持 `-Uninstall` 卸载） |
-| **NuShell** | `pwsh -File .\Install-NuShell.ps1` | 自动挂载 `starship.nu` 提示符与 `zoxide.nu` 目录快跳，配置 Fastfetch 横幅 |
-| **MSYS2** | `pwsh -File .\Install-MSYS2.ps1` | 注入 `MSYS2_PATH_TYPE=inherit` 继承系统 PATH，配置 UTF-8 与 Starship |
+| **NuShell** | `pwsh -File .\Install-NuShell.ps1` | 自动挂载 `starship.nu` 提示符与 `zoxide.nu` 目录快跳，配置 Fastfetch 横幅，**自动在 Windows Terminal 下拉菜单注册入口** |
+| **MSYS2** | `pwsh -File .\Install-MSYS2.ps1` | 注入 `MSYS2_PATH_TYPE=inherit` 继承系统 PATH，配置 UTF-8 与 Starship，**自动在 Windows Terminal 下拉菜单注册入口**（支持 `-Msys2InstallPath` 自定义目录） |
+
+> 💡 **关于 Terminal 下拉菜单注册**：单独安装 MSYS2 或 NuShell 软件后，Terminal 官方默认不会自动将其添加到下拉菜单。本项目的 `Install-MSYS2.ps1` 与 `Install-NuShell.ps1` 均内置了**智能扫描与注入逻辑**，若检测到 Terminal 中缺失，会自动将对应终端入口安全追加到 `settings.json` 中。若 MSYS2 安装在非默认目录（如 `D:\Tools\msys64`），只需在命令后加上 `-Msys2InstallPath "D:\Tools\msys64"` 即可。
 
 ---
 
