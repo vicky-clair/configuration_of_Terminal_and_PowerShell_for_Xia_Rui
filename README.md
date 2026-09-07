@@ -18,8 +18,10 @@
 
 ## 📚 详细文档导航
 
+- 💻 **[IDE 与开发工具集成指南 (IDE与开发工具集成指南.md)](IDE与开发工具集成指南.md)**：专为开发者量身打造，详解如何在 **VS Code** 与 **IntelliJ IDEA / PyCharm / WebStorm 等 JetBrains 全家桶** 中深度集成美化终端，配置终端独立字体与避免乱码。
 - 📖 **[开发与部署全景指南 (开发与部署文档.md)](开发与部署文档.md)**：深入剖析系统架构、配置拓扑、三级容错底层实现、随机主题算法、编码避坑规范与测试框架。
 - 📦 **[部署与回退操作手册 (部署与回退.md)](部署与回退.md)**：快照存档、版本追溯、沙箱测试与一键回退实操手册。
+- 🎨 **[Windows 终端美化背景与参考 (windows终端美化相关.md)](windows终端美化相关.md)**：终端渲染引擎、Catppuccin 配色方案与设计演进背景。
 
 ---
 
@@ -79,8 +81,10 @@ powershelldome/
 ├── starship/                        # Starship 霓虹赛博朋克全局配置文件
 ├── settings.json                    # Windows Terminal 深度美化配置文件
 ├── Microsoft.PowerShell_profile.ps1 # PowerShell 7 核心 Profile 源码
+├── IDE与开发工具集成指南.md         # VS Code 与 IntelliJ IDEA 内置终端集成配置指南
 ├── 开发与部署文档.md                 # 架构设计、实现原理与避坑指南
-└── 部署与回退.md                     # 备份归档与回退操作指南
+├── 部署与回退.md                     # 备份归档与回退操作指南
+└── windows终端美化相关.md           # 终端美化背景与配置参考
 ```
 
 ---
@@ -116,7 +120,7 @@ powershell.exe -ExecutionPolicy Bypass -File .\Install-All.ps1 -All
 
 | 想要配置的终端 | 执行命令 | 交互与特性 |
 | :--- | :--- | :--- |
-| **PowerShell 7** | `pwsh -File .\Install-PowerShell7.ps1` | **直接回车默认采用【每日随机主题】**，亦可输入 `1` 选择 Catppuccin 固定主题或 `3` Starship |
+| **PowerShell 7** | `pwsh -File .\Install-PowerShell7.ps1` | **直接回车默认采用 [1] 每日随机主题**，亦可输入 `2` 选择 Catppuccin 固定主题或 `3` Starship |
 | **Windows PowerShell 5.1** | `powershell.exe -ExecutionPolicy Bypass -File .\Install-WinPowerShell51.ps1` | 自动修复中文编码，固定加载极速毫秒级 Starship 主题 |
 | **CMD (命令提示符)** | `pwsh -File .\Install-Cmd.ps1` | 自动挂载 Clink 补全与 Starship 提示符（支持 `-Uninstall` 卸载） |
 | **NuShell** | `pwsh -File .\Install-NuShell.ps1` | 自动挂载 `starship.nu` 提示符与 `zoxide.nu` 目录快跳，配置 Fastfetch 横幅 |
@@ -164,9 +168,14 @@ powershell.exe -File .\Restore-All.ps1
 
 | 操作场景 | 推荐命令 / 快捷键 | 适用终端 | 说明 |
 | :--- | :--- | :--- | :--- |
-| **极速 TUI 文件管理器** | `y` (退出自动切目录) / `yazi` | 全终端 | 基于 Rust 的现代化双栏文件管理器 |
+| **模糊定位并编辑文件** | `fv` | PS7 | 呼出 FZF 模糊检索文件（带 `bat` 实时高亮预览），回车用 Neovim 打开 |
+| **全文代码模糊检索** | `fif <关键词>` | PS7 | 联动 `ripgrep` + `fzf` + `bat` 毫秒级全文秒搜，回车 Neovim 直跳目标行 |
+| **极速打开编辑器** | `v <文件或目录>` / `v .` | PS7 | 极速呼出 Neovim 编辑器 |
+| **极速 TUI 文件管理器** | `y` (退出自动切目录) / `y <路径>` | 全终端 | 基于 Rust 的现代化双栏文件管理器（支持带路径定位） |
 | **Docker 容器 TUI 管理** | `lzd` / `lazydocker` | PS7 / CMD | 纯终端交互式 Docker 镜像与容器监控管理 |
-| **彩色文件列表** | `ll` / `la` / `lt` | 全终端 | 调用 `eza` 图标排版（目录树/包含隐藏项） |
+| **彩色文件与树状图** | `ll` / `la` / `lt` / `lt3` | 全终端 | 调用 `eza` 图标排版（`lt` 2层树 / `lt3` 3层树 / 隐藏项） |
+| **显示文件 Git 变更状态** | `lg` | PS7 | 调用 `eza --long --git`，文件列表右侧直观展示暂存/修改/未跟踪状态 |
+| **快速上溯父级目录** | `..` / `...` / `....` | PS7 | 分别快速返回上一层、上两层、上三层目录 |
 | **高亮预览文件** | `cat README.md` (CMD/Nu/MSYS2) / `catc` (PS7) | 全终端 | 调用 `bat` 进行代码高亮与自动折叠 |
 | **智能目录瞬间跳转** | `z <目录名片段>` | 全终端 | 调用 `zoxide` 历史权重算法直接跳转 |
 | **交互式目录模糊跳转** | `Alt+Z` 或 `zi` | PS7 / NuShell | 调用 `fzf` 交互式模糊检索并跳转 |

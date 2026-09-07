@@ -1,4 +1,7 @@
-﻿# Run in a disposable child process: pwsh -NoProfile -File .\tests\Verify-Configuration.ps1
+﻿# ============================================================================
+# 配置静态与语法回归测试套件 (可在独立子进程中执行)
+# 执行方法: pwsh -NoProfile -File .\tests\Verify-Configuration.ps1
+# ============================================================================
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $profileFile = Join-Path $projectRoot 'Microsoft.PowerShell_profile.ps1'
@@ -7,42 +10,43 @@ function Assert-True($Condition, [string]$Message) {
     if (-not $Condition) { throw $Message }
 }
 
+# 1. Windows Terminal settings.json 静态校验 (GUID 唯一性、默认 Profile 有效性、按键绑定解析)
 $settings = Get-Content -LiteralPath (Join-Path $projectRoot 'settings.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $guids = @($settings.profiles.list | ForEach-Object { [guid]$_.guid })
-Assert-True ($guids.Count -eq @($guids | Select-Object -Unique).Count) 'Duplicate profile GUID.'
-Assert-True ($guids -contains [guid]$settings.defaultProfile) 'Default profile is missing.'
+Assert-True ($guids.Count -eq @($guids | Select-Object -Unique).Count) '检测到重复的 Profile GUID。'
+Assert-True ($guids -contains [guid]$settings.defaultProfile) '默认 Profile GUID 未在 profiles 列表中找到。'
 $actionIds = @($settings.actions.id)
 foreach ($binding in $settings.keybindings) {
-    Assert-True ($actionIds -contains $binding.id) "Unresolved keybinding: $($binding.id)"
+    Assert-True ($actionIds -contains $binding.id) "按键绑定引用了未定义的 action: $($binding.id)"
 }
 $parseTokens = $null
 $parseErrors = $null
 $null = [System.Management.Automation.Language.Parser]::ParseFile($profileFile, [ref]$parseTokens, [ref]$parseErrors)
 Assert-True ($parseErrors.Count -eq 0) ($parseErrors | Out-String)
 
-# Verify CMD configuration assets
+# 2. 校验 CMD 现代化相关配置与脚本资产
 $cmdAutorun = Join-Path $projectRoot 'cmd\autorun.cmd'
 $cmdStarship = Join-Path $projectRoot 'cmd\clink\starship.lua'
 $cmdSettings = Join-Path $projectRoot 'cmd\clink\settings.lua'
 $cmdInstaller = Join-Path $projectRoot 'cmd\Install-CmdConfiguration.ps1'
-Assert-True (Test-Path -LiteralPath $cmdAutorun -PathType Leaf) 'cmd\autorun.cmd is missing.'
-Assert-True (Test-Path -LiteralPath $cmdStarship -PathType Leaf) 'cmd\clink\starship.lua is missing.'
-Assert-True (Test-Path -LiteralPath $cmdSettings -PathType Leaf) 'cmd\clink\settings.lua is missing.'
-Assert-True (Test-Path -LiteralPath $cmdInstaller -PathType Leaf) 'cmd\Install-CmdConfiguration.ps1 is missing.'
+Assert-True (Test-Path -LiteralPath $cmdAutorun -PathType Leaf) '缺少 cmd\autorun.cmd。'
+Assert-True (Test-Path -LiteralPath $cmdStarship -PathType Leaf) '缺少 cmd\clink\starship.lua。'
+Assert-True (Test-Path -LiteralPath $cmdSettings -PathType Leaf) '缺少 cmd\clink\settings.lua。'
+Assert-True (Test-Path -LiteralPath $cmdInstaller -PathType Leaf) '缺少 cmd\Install-CmdConfiguration.ps1。'
 $cmdTokens = $null
 $cmdErrors = $null
 $null = [System.Management.Automation.Language.Parser]::ParseFile($cmdInstaller, [ref]$cmdTokens, [ref]$cmdErrors)
 Assert-True ($cmdErrors.Count -eq 0) ($cmdErrors | Out-String)
 $cmdProfileEntry = $settings.profiles.list | Where-Object { $_.guid -eq '{0caa0dad-35be-5f56-a8ff-afceeeaa6101}' }
-Assert-True ($cmdProfileEntry.startingDirectory -eq '%USERPROFILE%') 'Command Prompt startingDirectory is not %USERPROFILE%.'
+Assert-True ($cmdProfileEntry.startingDirectory -eq '%USERPROFILE%') 'Command Prompt 的 startingDirectory 不是 %USERPROFILE%。'
 
-# Verify Fastfetch custom assets
+# 3. 校验 Fastfetch 专属字符画与配置文件
 $ffAscii = Join-Path $projectRoot 'fastfetch\ascii.txt'
 $ffConfig = Join-Path $projectRoot 'fastfetch\config.jsonc'
-Assert-True (Test-Path -LiteralPath $ffAscii -PathType Leaf) 'fastfetch\ascii.txt is missing.'
-Assert-True (Test-Path -LiteralPath $ffConfig -PathType Leaf) 'fastfetch\config.jsonc is missing.'
+Assert-True (Test-Path -LiteralPath $ffAscii -PathType Leaf) '缺少 fastfetch\ascii.txt。'
+Assert-True (Test-Path -LiteralPath $ffConfig -PathType Leaf) '缺少 fastfetch\config.jsonc。'
 
-# Verify standalone installation and restore scripts
+# 4. 校验所有独立安装与回退脚本的 AST 语法树无报错
 $installerScripts = @(
     'Install-PowerShell7.ps1',
     'Install-WinPowerShell51.ps1',
@@ -81,6 +85,11 @@ try {
     Assert-True ((Get-Alias ls).Definition -eq 'Get-ChildItem') 'ls alias changed.'
     Assert-True ((Get-Alias cat).Definition -eq 'Get-Content') 'cat alias changed.'
     Assert-True ($OutputEncoding.CodePage -eq 65001) 'Output encoding is not UTF-8.'
+    Assert-True ([bool](Get-Command lt -ErrorAction SilentlyContinue)) 'Missing lt function.'
+    Assert-True ([bool](Get-Command lg -ErrorAction SilentlyContinue)) 'Missing lg function.'
+    Assert-True ([bool](Get-Command zi -ErrorAction SilentlyContinue)) 'Missing zi function.'
+    Assert-True ([bool](Get-Command fv -ErrorAction SilentlyContinue)) 'Missing fv function.'
+    Assert-True ([bool](Get-Command fif -ErrorAction SilentlyContinue)) 'Missing fif function.'
 
     # Intercept git after loading: test forwarding without altering any repository.
     if (Get-Command gco -ErrorAction SilentlyContinue) {

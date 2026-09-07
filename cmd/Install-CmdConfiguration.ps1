@@ -40,12 +40,13 @@ if ($PSCmdlet.ShouldProcess($TargetDir, "Deploy CMD autorun script")) {
 
 # 2. 同步 Clink 脚本至 %LOCALAPPDATA%\clink
 $clinkDestDir = "$env:LOCALAPPDATA\clink"
-if (Test-Path $clinkDestDir) {
-    if ($PSCmdlet.ShouldProcess($clinkDestDir, "Deploy Clink Lua scripts")) {
-        Get-ChildItem $clinkSource -Filter '*.lua' | ForEach-Object {
-            Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $clinkDestDir $_.Name) -Force
-            Write-Host "✅ 已同步 Clink 脚本: $($_.Name) -> $clinkDestDir" -ForegroundColor Green
-        }
+if (-not (Test-Path $clinkDestDir)) {
+    New-Item -ItemType Directory -Path $clinkDestDir -Force | Out-Null
+}
+if ($PSCmdlet.ShouldProcess($clinkDestDir, "Deploy Clink Lua scripts")) {
+    Get-ChildItem $clinkSource -Filter '*.lua' | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $clinkDestDir $_.Name) -Force
+        Write-Host "✅ 已同步 Clink 脚本: $($_.Name) -> $clinkDestDir" -ForegroundColor Green
     }
 }
 

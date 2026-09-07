@@ -41,24 +41,25 @@ try {
         [System.IO.File]::AppendAllLines($Path, [string[]]@($Value))
     }
 
-    # A later user edit must survive in the pre-rollback rescue snapshot.
+    # 模拟外部用户在部署后所做的本地更改，必须安全留存在 pre-rollback 抢救快照中
     Append-TestLineSafely $manifest.Files[0].Target '# later user edit'
     $laterHash = (Get-FileHash -LiteralPath $manifest.Files[0].Target).Hash
     & (Join-Path $projectRoot 'Manage-TerminalConfiguration.ps1') -Mode Rollback -BackupDirectory $fixtureSnapshots
     foreach ($entry in $manifest.Files) {
-        if ((Get-FileHash -LiteralPath $entry.Target).Hash -ne $entry.BeforeSHA256) { throw 'Rollback was not byte-exact.' }
+        if ((Get-FileHash -LiteralPath $entry.Target).Hash -ne $entry.BeforeSHA256) { throw '回退后的字节与原始快照不一致。' }
     }
     $rescue = Get-ChildItem -LiteralPath $fixtureSnapshots -Directory -Filter 'pre-rollback-*'
     if ((Get-FileHash -LiteralPath (Join-Path $rescue.FullName $manifest.Files[0].After)).Hash -ne $laterHash) {
-        throw 'Later user edits were not backed up.'
+        throw '用户最新修改未能在 pre-rollback 快照中成功保存。'
     }
+    # 模拟配置被意外篡改时的防覆写阻断
     Append-TestLineSafely $manifest.Files[1].Target ' '
     $blocked = $false
     try { & (Join-Path $projectRoot 'Manage-TerminalConfiguration.ps1') -Mode Apply -BackupDirectory $fixtureSnapshots }
-    catch { $blocked = $_.Exception.Message -like 'Configuration changed since backup*' }
-    if (-not $blocked) { throw 'Apply must reject a changed live file.' }
+    catch { $blocked = ($_.Exception.Message -like '*Configuration changed since backup*' -or $_.Exception.Message -like '*配置文件在备份后已被修改*') }
+    if (-not $blocked) { throw '部署预检未能阻止对已修改文件的意外覆写。' }
     if ((Get-FileHash -LiteralPath $manifest.Files[0].Target).Hash -ne $manifest.Files[0].BeforeSHA256) {
-        throw 'Preflight failure changed the first file.'
+        throw '预检失败导致了意外的部分写入。'
     }
     Write-Output 'PASS: apply, WhatIf, exact rollback, rescue backup and changed-file protection.'
 } finally {

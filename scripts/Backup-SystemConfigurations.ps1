@@ -1,6 +1,12 @@
-﻿# Backup all system terminal and shell configurations into project
+﻿# ============================================================================
+# 系统终端与 Shell 配置全量审查备份脚本
+# 用于在重大重构或初次审计时，将当前运行系统中的所有终端资产抓取至 backups 目录
+# ============================================================================
 $ErrorActionPreference = 'Stop'
-$projectRoot = 'C:\XMWJJ\powershelldome'
+$projectRoot = Split-Path -Parent $PSScriptRoot
+if (-not (Test-Path (Join-Path $projectRoot 'Microsoft.PowerShell_profile.ps1'))) {
+    $projectRoot = 'C:\XMWJJ\powershelldome'
+}
 $backupDir = Join-Path $projectRoot "backups\system-audit-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
 
@@ -25,9 +31,9 @@ function Backup-File {
             SHA256 = $hash
             SizeBytes = $size
         }
-        Write-Host "Backed up: $SourcePath -> $RelativeDest ($hash)" -ForegroundColor Green
+        Write-Host "已捕获并备份: $SourcePath -> $RelativeDest ($hash)" -ForegroundColor Green
     } else {
-        Write-Host "File not found, skipped: $SourcePath" -ForegroundColor DarkGray
+        Write-Host "未找到文件，跳过: $SourcePath" -ForegroundColor DarkGray
     }
 }
 

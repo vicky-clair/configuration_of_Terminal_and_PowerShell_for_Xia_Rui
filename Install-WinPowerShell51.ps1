@@ -50,6 +50,10 @@ if ($Theme -eq 'CatppuccinMocha') {
 }
 Install-ScoopAppsIfMissing $appsToInstall
 Ensure-FastfetchConfigured
+Ensure-StarshipConfigured
+if ($Theme -eq 'CatppuccinMocha') {
+    $null = Ensure-OhMyPoshThemes
+}
 
 # 4. 准备 PSReadLine 模块 (Windows PowerShell 5.1 自带 2.0，推荐升级)
 Write-Host "`n[3/4] 检查 PowerShell 模块..." -ForegroundColor Yellow

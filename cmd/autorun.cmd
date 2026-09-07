@@ -1,13 +1,13 @@
 @echo off
 rem ===========================================================================
-rem Windows Command Prompt (cmd.exe) AutoRun Configuration
-rem UTF-8 encoding, modern CLI aliases (Doskey), and Clink/Starship injection
+rem Windows 命令提示符 (cmd.exe) 自动化启动挂载脚本
+rem 实现 UTF-8 (65001) 编码修复、现代 CLI 别名 (Doskey) 与 Clink/Starship 注入
 rem ===========================================================================
 
-rem 1. Set console code page to UTF-8 (65001)
+rem 1. 设置控制台代码页为 UTF-8 (65001)，解决中文与特殊字符乱码
 chcp 65001 >nul 2>&1
 
-rem 2. Modern CLI aliases via Doskey
+rem 2. 通过 Doskey 注入现代化 CLI 快捷别名 (eza / bat / ripgrep / git)
 doskey ls=eza --icons $*
 doskey ll=eza -l --icons --group-directories-first $*
 doskey la=eza -la --icons --group-directories-first $*

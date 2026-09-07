@@ -21,6 +21,7 @@ param(
     [switch]$IncludeNuShell,
     [switch]$IncludeMSYS2,
     [switch]$All,
+    [switch]$ApplyWindowsTerminalSettings,
     [switch]$NonInteractive
 )
 
@@ -40,6 +41,9 @@ if (-not $SkipPowerShell7) {
     Write-Host "`n>>> [1/5] 执行 PowerShell 7 环境安装与美化配置..." -ForegroundColor Yellow
     $ps7Params = @{}
     if ($ThemeMode) { $ps7Params['ThemeMode'] = $ThemeMode }
+    if ($PSBoundParameters.ContainsKey('ApplyWindowsTerminalSettings')) {
+        $ps7Params['ApplyWindowsTerminalSettings'] = $ApplyWindowsTerminalSettings
+    }
     if ($NonInteractive) { $ps7Params['NonInteractive'] = $true }
     & (Join-Path $projectRoot 'Install-PowerShell7.ps1') @ps7Params
 } else {

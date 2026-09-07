@@ -1,4 +1,10 @@
-﻿# Restore the exact configuration captured before the latest installation/deployment.
+﻿<#
+.SYNOPSIS
+    终端配置回退委托入口脚本
+.DESCRIPTION
+    调度 Restore-All.ps1 或调用历史 deployment 快照，
+    将系统中所有终端配置安全恢复至部署前的状态。
+#>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [string]$BackupDirectory,
@@ -7,7 +13,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
 
-# 优先尝试现代全量回退
+# 1. 优先调用现代全量回退引擎 (Restore-All.ps1)
 $restoreAllScript = Join-Path $projectRoot 'Restore-All.ps1'
 if (Test-Path $restoreAllScript) {
     $params = @{}

@@ -10,6 +10,7 @@
 param(
     [ValidateSet('Random', 'Fixed', 'Starship')]
     [string]$ThemeMode = 'Random',
+    [switch]$ApplyWindowsTerminalSettings,
     [switch]$NonInteractive
 )
 
@@ -37,11 +38,15 @@ $coreApps = @(
     'pwsh',
     'git',
     'oh-my-posh',
+    'starship',
     'fastfetch',
     'eza',
     'bat',
+    'ripgrep',
+    'fd',
     'zoxide',
     'fzf',
+    'neovim',
     'lazydocker',
     'vfox',
     'nerd-fonts/JetBrainsMono-NF'
@@ -57,6 +62,7 @@ Write-Host "`n[4/5] 检查本地主题与 Fastfetch 专属配置资产..." -Fore
 $themeCount = Ensure-OhMyPoshThemes
 Write-Host "[OK] 本地主题库已就绪 (共找到 $themeCount 个主题)" -ForegroundColor Green
 Ensure-FastfetchConfigured
+Ensure-StarshipConfigured
 
 # 6. 交互式主题选择 (回车默认: Random 每日随机主题)
 if ($PSBoundParameters.ContainsKey('ThemeMode')) {
@@ -112,4 +118,30 @@ $utf8WithBom = New-Object System.Text.UTF8Encoding $true
 [System.IO.File]::WriteAllText($profileTarget, $finalContent, $utf8WithBom)
 
 Write-Host "[OK] PowerShell 7 Profile 已成功安装至: $profileTarget" -ForegroundColor Green
+
+# 8. 智能联动 Windows Terminal 深度美化配置 (亚克力毛玻璃/Catppuccin配色/JetBrainsMono字体)
+$wtStableDir = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState'
+$wtPreviewDir = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState'
+if ((Test-Path $wtStableDir) -or (Test-Path $wtPreviewDir)) {
+    $applyWt = $false
+    if ($PSBoundParameters.ContainsKey('ApplyWindowsTerminalSettings')) {
+        $applyWt = [bool]$ApplyWindowsTerminalSettings
+    } elseif ($NonInteractive) {
+        $applyWt = $false
+    } else {
+        Write-Host "`n============================================================" -ForegroundColor Cyan
+        Write-Host "[*] 检测到系统中已安装 Windows Terminal！" -ForegroundColor Yellow
+        Write-Host "是否同步应用项目推荐的 Windows Terminal 深度美化配置？" -ForegroundColor Yellow
+        Write-Host "  (包含: 85% 亚克力磨砂透明、Catppuccin Mocha 配色、JetBrainsMono NF 字体、完整多 Shell 导航)" -ForegroundColor DarkGray
+        Write-Host "============================================================" -ForegroundColor Cyan
+        $wtChoice = Read-Host "是否应用 Windows Terminal 配置文件？[Y/N] (回车默认: Y)"
+        if ($wtChoice.Trim() -ne 'N' -and $wtChoice.Trim() -ne 'n') {
+            $applyWt = $true
+        }
+    }
+    if ($applyWt) {
+        Ensure-WindowsTerminalConfigured -Force
+    }
+}
+
 Write-Host "`n[+] 安装成功！请新开一个 pwsh 窗口体验全新终端。" -ForegroundColor Cyan

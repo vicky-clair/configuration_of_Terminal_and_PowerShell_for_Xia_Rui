@@ -111,8 +111,12 @@ function Install-ScoopAppsIfMissing {
         'vfox'        = 'version-fox.vfox'
         'starship'    = 'Starship.Starship'
         'ripgrep'     = 'BurntSushi.ripgrep.MSVC'
+        'rg'          = 'BurntSushi.ripgrep.MSVC'
+        'fd'          = 'sharkdp.fd'
         'neovim'      = 'Neovim.Neovim'
+        'nvim'        = 'Neovim.Neovim'
         'yazi'        = 'sxyazi.yazi'
+        'clink'       = 'chrisant996.Clink'
     }
 
     foreach ($app in $Apps) {
@@ -180,11 +184,11 @@ function Install-PSModulesIfMissing {
     try {
         if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
             Write-Host "[*] 正在静默配置 NuGet 包管理器提供程序..." -ForegroundColor Yellow
-            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue | Out-Null
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -Scope CurrentUser -ErrorAction SilentlyContinue | Out-Null
         }
         $gallery = Get-PSRepository -Name 'PSGallery' -ErrorAction SilentlyContinue
         if ($gallery -and $gallery.InstallationPolicy -ne 'Trusted') {
-            Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+            Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -Confirm:$false -ErrorAction SilentlyContinue
         }
     } catch {
         Write-Verbose "NuGet/PSGallery setup note: $_"
@@ -194,13 +198,40 @@ function Install-PSModulesIfMissing {
         if (-not (Get-Module -ListAvailable -Name $mod)) {
             Write-Host "[*] 正在安装 PowerShell 模块: $mod..." -ForegroundColor Yellow
             try {
-                Install-Module -Name $mod -Scope CurrentUser -Force -SkipPublisherCheck -ErrorAction Stop
+                Install-Module -Name $mod -Scope CurrentUser -Force -Confirm:$false -SkipPublisherCheck -ErrorAction Stop
                 Write-Host "[OK] 模块安装完成: $mod" -ForegroundColor Green
             } catch {
                 Write-Warning "模块 $mod 安装遇到警告: $_"
             }
         } else {
             Write-Host "[OK] 模块已就绪: $mod" -ForegroundColor DarkGray
+        }
+    }
+}
+
+function Ensure-WindowsTerminalConfigured {
+    param(
+        [switch]$Force
+    )
+    $projectRoot = Split-Path -Parent $PSScriptRoot
+    if (-not (Test-Path (Join-Path $projectRoot 'settings.json'))) {
+        $projectRoot = $PSScriptRoot
+    }
+    $sourceSettings = Join-Path $projectRoot 'settings.json'
+    if (-not (Test-Path -LiteralPath $sourceSettings)) { return }
+
+    $wtTargets = @(
+        (Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'),
+        (Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe\LocalState\settings.json')
+    )
+
+    foreach ($target in $wtTargets) {
+        $targetDir = Split-Path -Parent $target
+        if (Test-Path $targetDir) {
+            if ($Force -or (Test-Path $target)) {
+                Copy-Item -LiteralPath $sourceSettings -Destination $target -Force
+                Write-Host "[OK] Windows Terminal 深度美化配置 (亚克力磨砂/Catppuccin配色/JetBrainsMono字体) 已部署至: $target" -ForegroundColor Green
+            }
         }
     }
 }
@@ -262,6 +293,26 @@ function Ensure-FastfetchConfigured {
             [System.IO.File]::WriteAllText((Join-Path $targetFastfetchDir 'config.jsonc'), $configContent, $utf8NoBom)
         }
         Write-Host "[OK] Fastfetch 专属 ASCII 横幅与配置文件已部署就绪 ($targetFastfetchDir)" -ForegroundColor Green
+    }
+}
+
+function Ensure-StarshipConfigured {
+    $projectRoot = Split-Path -Parent $PSScriptRoot
+    if (-not (Test-Path (Join-Path $projectRoot 'starship\starship.toml'))) {
+        $projectRoot = $PSScriptRoot
+    }
+
+    $starshipSource = Join-Path $projectRoot 'starship\starship.toml'
+    $targetStarshipDir = Join-Path $env:USERPROFILE '.config'
+    $targetStarshipFile = Join-Path $targetStarshipDir 'starship.toml'
+
+    if (-not (Test-Path $targetStarshipDir)) {
+        New-Item -ItemType Directory -Path $targetStarshipDir -Force | Out-Null
+    }
+
+    if (Test-Path -LiteralPath $starshipSource) {
+        Copy-Item -LiteralPath $starshipSource -Destination $targetStarshipFile -Force
+        Write-Host "[OK] Starship 赛博朋克固定配置已部署就绪: $targetStarshipFile" -ForegroundColor Green
     }
 }
 

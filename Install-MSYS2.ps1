@@ -69,6 +69,14 @@ if (-not $msys2Root) {
 $bashExe = Join-Path $msys2Root 'usr\bin\bash.exe'
 Write-Host "[OK] 已定位 MSYS2 环境: $msys2Root (bash: $bashExe)" -ForegroundColor Green
 Ensure-FastfetchConfigured
+Ensure-StarshipConfigured
+$null = Install-AppWithChocoWingetFallback -Name "Starship" -ChocoId "starship" -WingetId "Starship.Starship" -ScoopId "starship" -CommandCheck "starship"
+$null = Install-AppWithChocoWingetFallback -Name "Fastfetch" -ChocoId "fastfetch" -WingetId "Fastfetch-cli.Fastfetch" -ScoopId "fastfetch" -CommandCheck "fastfetch"
+$null = Install-AppWithChocoWingetFallback -Name "Eza" -ChocoId "eza" -WingetId "eza-community.eza" -ScoopId "eza" -CommandCheck "eza"
+$null = Install-AppWithChocoWingetFallback -Name "Bat" -ChocoId "bat" -WingetId "sharkdp.bat" -ScoopId "bat" -CommandCheck "bat"
+$null = Install-AppWithChocoWingetFallback -Name "Zoxide" -ChocoId "zoxide" -WingetId "ajeetdsouza.zoxide" -ScoopId "zoxide" -CommandCheck "zoxide"
+Ensure-ScoopBuckets @('nerd-fonts')
+Install-ScoopAppsIfMissing @('nerd-fonts/JetBrainsMono-NF')
 
 # 4. 初始化 MSYS2 运行环境与配置 ~/.bashrc
 Write-Host "`n[2/3] 初始化 MSYS2 运行环境与配置 ~/.bashrc ..." -ForegroundColor Yellow

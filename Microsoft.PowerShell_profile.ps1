@@ -19,7 +19,7 @@ try {
     Write-Verbose "Console encoding unavailable in this host: $_"
 }
 
-# Keep dir/ls/cat as PowerShell object-producing commands. Use ll/la/catc for display.
+# Keep dir/ls/cat as PowerShell object-producing commands. Use ll/la/lt/lg/catc for display.
 function ll {
     if (Get-Command eza -CommandType Application -ErrorAction SilentlyContinue) {
         eza --long --icons=auto --group-directories-first --color=auto @args
@@ -30,11 +30,31 @@ function la {
         eza --long --all --icons=auto --group-directories-first --color=auto @args
     } else { Get-ChildItem -Force @args }
 }
+function lt {
+    if (Get-Command eza -CommandType Application -ErrorAction SilentlyContinue) {
+        eza --tree --level=2 --icons=auto --group-directories-first --color=auto @args
+    } else { Get-ChildItem -Recurse -Depth 2 @args }
+}
+function lt3 {
+    if (Get-Command eza -CommandType Application -ErrorAction SilentlyContinue) {
+        eza --tree --level=3 --icons=auto --group-directories-first --color=auto @args
+    } else { Get-ChildItem -Recurse -Depth 3 @args }
+}
+function lg {
+    if (Get-Command eza -CommandType Application -ErrorAction SilentlyContinue) {
+        eza --long --git --icons=auto --group-directories-first --color=auto @args
+    } else { Get-ChildItem @args }
+}
 function catc {
     if (Get-Command bat -CommandType Application -ErrorAction SilentlyContinue) {
         bat --paging=never @args
     } else { Get-Content @args }
 }
+
+# Quick directory upward navigation
+function ..   { Set-Location .. }
+function ...  { Set-Location ../.. }
+function .... { Set-Location ../../.. }
 
 if (Get-Command git -CommandType Application -ErrorAction SilentlyContinue) {
     Set-Alias g git
@@ -66,16 +86,123 @@ if (Get-Command lazydocker -CommandType Application -ErrorAction SilentlyContinu
     Set-Alias lzd lazydocker
 }
 
-# Neovim as default editor
+# Neovim as default editor & quick aliases
 if (Get-Command nvim -CommandType Application -ErrorAction SilentlyContinue) {
     $env:EDITOR = 'nvim'
     $env:VISUAL = 'nvim'
+    function v { & nvim @args }
 }
 
-# Integrate fd into FZF if available
+# Zoxide interactive query alias
+function zi {
+    if (Get-Command zoxide -CommandType Application -ErrorAction SilentlyContinue) {
+        $dest = & zoxide query -i @args
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($dest) -and (Test-Path -LiteralPath $dest)) {
+            Set-Location -LiteralPath $dest
+        }
+    } else {
+        Write-Warning "zoxide 未安装，请运行: scoop install zoxide"
+    }
+}
+
+# Fuzzy Find & Edit file with Neovim and bat preview
+function fv {
+    if (-not (Get-Command fzf -CommandType Application -ErrorAction SilentlyContinue)) {
+        Write-Warning "fzf 未安装，无法执行模糊选文件。请运行: scoop install fzf"
+        return
+    }
+    $previewCmd = if (Get-Command bat -CommandType Application -ErrorAction SilentlyContinue) {
+        'bat --style=numbers --color=always --line-range :500 {}'
+    } else {
+        'type {}'
+    }
+    $fzfArgs = @(
+        '--height=80%',
+        '--layout=reverse',
+        '--border=rounded',
+        "--preview=$previewCmd",
+        '--preview-window=right:60%:wrap'
+    )
+    $file = & fzf @fzfArgs
+    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($file) -and (Test-Path -LiteralPath $file)) {
+        if (Get-Command nvim -CommandType Application -ErrorAction SilentlyContinue) {
+            & nvim $file
+        } elseif (Get-Command code -CommandType Application -ErrorAction SilentlyContinue) {
+            & code $file
+        } else {
+            notepad $file
+        }
+    }
+}
+
+# Find In Files (ripgrep + fzf + bat + nvim interactive full-text search)
+function fif {
+    param([string]$Query = '')
+    if (-not (Get-Command rg -CommandType Application -ErrorAction SilentlyContinue)) {
+        Write-Warning "ripgrep (rg) 未安装，无法执行全文代码检索。请运行: scoop install ripgrep"
+        return
+    }
+    if (-not (Get-Command fzf -CommandType Application -ErrorAction SilentlyContinue)) {
+        Write-Warning "fzf 未安装，无法执行交互式检索。请运行: scoop install fzf"
+        return
+    }
+    $hasBat = [bool](Get-Command bat -CommandType Application -ErrorAction SilentlyContinue)
+    $previewCmd = if ($hasBat) {
+        'bat --style=numbers --color=always --highlight-line {2} {1}'
+    } else {
+        'type {1}'
+    }
+    $fzfArgs = @(
+        '--ansi',
+        '--delimiter=:',
+        '--prompt=fif> ',
+        '--layout=reverse',
+        '--border=rounded',
+        "--preview=$previewCmd",
+        '--preview-window=right:60%:+{2}-5'
+    )
+    $rgArgs = @('--column', '--line-number', '--no-heading', '--color=always', '--smart-case')
+    $rgOutput = if ($Query) {
+        & rg @rgArgs -- $Query
+    } else {
+        & rg @rgArgs .
+    }
+    $selected = $rgOutput | & fzf @fzfArgs
+    if ($selected) {
+        $parts = $selected -split ':'
+        $file = $parts[0]
+        $line = if ($parts.Count -gt 1) { $parts[1] } else { '1' }
+        if (Test-Path -LiteralPath $file) {
+            if (Get-Command nvim -CommandType Application -ErrorAction SilentlyContinue) {
+                & nvim "+$line" $file
+            } elseif (Get-Command code -CommandType Application -ErrorAction SilentlyContinue) {
+                & code --goto "${file}:${line}"
+            } else {
+                notepad $file
+            }
+        }
+    }
+}
+
+# Integrate fd and Catppuccin Mocha theme with live bat/eza preview into FZF
 if (Get-Command fd -CommandType Application -ErrorAction SilentlyContinue) {
-    $env:FZF_DEFAULT_COMMAND = 'fd --type f --hidden --exclude .git'
-    $env:FZF_ALT_C_COMMAND = 'fd --type d --hidden --exclude .git'
+    $env:FZF_DEFAULT_COMMAND = 'fd --type f --hidden --exclude .git --exclude node_modules --exclude .venv'
+    $env:FZF_ALT_C_COMMAND = 'fd --type d --hidden --exclude .git --exclude node_modules --exclude .venv'
+}
+
+$fzfColors = '--color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8 ' +
+             '--color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc ' +
+             '--color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8 ' +
+             '--color=selected-bg:#45475a'
+
+$fzfPreview = ''
+if (Get-Command bat -CommandType Application -ErrorAction SilentlyContinue) {
+    $fzfPreview = '--preview "bat --style=numbers --color=always --line-range :500 {}" --preview-window "right:60%:wrap"'
+}
+$env:FZF_DEFAULT_OPTS = "$fzfColors --border=rounded --info=inline --height=80% --layout=reverse --multi $fzfPreview".Trim()
+
+if (Get-Command eza -CommandType Application -ErrorAction SilentlyContinue) {
+    $env:FZF_ALT_C_OPTS = "$fzfColors --border=rounded --info=inline --height=80% --layout=reverse --preview 'eza --tree --level=2 --color=always --icons=always {}' --preview-window 'right:60%:wrap'"
 }
 
 function Log-Info($msg)  { Write-Host "[INFO]  $msg" -ForegroundColor Cyan }
@@ -92,43 +219,178 @@ function Show-SystemInfo {
     } else { Write-Warning 'Fastfetch is not installed. Run: scoop install fastfetch' }
 }
 
-# Feature status card: displays active CLI tool integrations and hotkeys.
+# Helper functions for CJK-aware width formatting
+function Get-DisplayWidth([string]$text) {
+    $width = 0
+    foreach ($ch in $text.ToCharArray()) {
+        $code = [int]$ch
+        if (($code -ge 0x2E80 -and $code -le 0x9FFF) -or
+            ($code -ge 0xF900 -and $code -le 0xFAFF) -or
+            ($code -ge 0xFF01 -and $code -le 0xFF60)) {
+            $width += 2
+        } else {
+            $width += 1
+        }
+    }
+    return $width
+}
+
+function Pad-DisplayRight([string]$text, [int]$totalWidth) {
+    $currentWidth = Get-DisplayWidth $text
+    if ($currentWidth -ge $totalWidth) { return $text }
+    return $text + (' ' * ($totalWidth - $currentWidth))
+}
+
+# Feature status card: displays active CLI tool integrations with real checks and warnings
 # Set $env:POWERSHELL_PROFILE_TIPS = '0' to disable.
 function Show-FeatureTips {
     if ($env:POWERSHELL_PROFILE_MINIMAL -eq '1' -or $env:POWERSHELL_PROFILE_BANNER -eq '0' -or $env:POWERSHELL_PROFILE_TIPS -eq '0') { return }
 
-    if ($global:VFOX_SKIPPED) {
-        Write-Host "  ⚠ vfox 初始化失败或超时，本次已跳过" -ForegroundColor Yellow
-    }
+    $features = [System.Collections.Generic.List[string]]::new()
+    $warnings = [System.Collections.Generic.List[string]]::new()
+
+    # 1. Yazi
     if (Get-Command yazi -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ yazi 文件管理器已集成 (命令: y)" -ForegroundColor Green
+        $features.Add('yazi 目录穿梭 (y [path])')
+    } else {
+        $warnings.Add('yazi 文件管理器未就绪 (缺少 yazi: 请运行 scoop install yazi)')
     }
-    if (Get-Command fd -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ fd 已集成到 FZF" -ForegroundColor Cyan
+
+    # 2. fd
+    if ((Get-Command fd -CommandType Application -ErrorAction SilentlyContinue) -and ($env:FZF_DEFAULT_COMMAND -like '*fd*')) {
+        $features.Add('fd 极速索引引擎 (FZF加速)')
+    } else {
+        $warnings.Add('fd 索引引擎未就绪 (缺少 fd: 请运行 scoop install fd)')
     }
+
+    # 3. bat + eza preview
     $hasBat = [bool](Get-Command bat -CommandType Application -ErrorAction SilentlyContinue)
     $hasEza = [bool](Get-Command eza -CommandType Application -ErrorAction SilentlyContinue)
-    if ($hasBat -and $hasEza) {
-        Write-Host "  ✓ bat + eza 预览集成完成" -ForegroundColor Green
+    if ($hasBat -and $hasEza -and ($env:FZF_DEFAULT_OPTS -like '*--preview*')) {
+        $features.Add('bat+eza 画中画实时预览')
+    } else {
+        $missing = @()
+        if (-not $hasBat) { $missing += 'bat' }
+        if (-not $hasEza) { $missing += 'eza' }
+        $warnings.Add("FZF 画中画预览已降级 (缺少 $($missing -join ', '): 建议运行 scoop install $($missing -join ' '))")
     }
-    if (Get-Command fzf -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ fzf 模糊查找已加载 (Ctrl+R / Ctrl+F / Alt+Z)" -ForegroundColor Cyan
+
+    # 4. fzf & PSFzf
+    $hasFzf = [bool](Get-Command fzf -CommandType Application -ErrorAction SilentlyContinue)
+    $hasPsFzf = [bool](Get-Module PSFzf) -or [bool](Get-Module -ListAvailable PSFzf)
+    if ($hasFzf -and $hasPsFzf) {
+        $features.Add('fzf 模糊搜索 (Ctrl+R/F/Alt+Z)')
+    } elseif ($hasFzf) {
+        $features.Add('fzf 基础模糊查找 (CLI模式)')
+        $warnings.Add('PSFzf 快捷键未加载 (缺少模块: 请运行 Install-Module PSFzf)')
+    } else {
+        $warnings.Add('fzf 模糊检索未就绪 (缺少 fzf: 请运行 scoop install fzf)')
     }
+
+    # 5. eza
     if ($hasEza) {
-        Write-Host "  ✓ eza 现代化 ls 已启用 (别名: ls, ll, la)" -ForegroundColor Green
+        $features.Add('eza 现代文件列表 (ll/la/lt/lg)')
+    } else {
+        $warnings.Add('eza 现代化 ls 未启用 (缺少 eza: 请运行 scoop install eza)')
     }
+
+    # 6. lazydocker
     if (Get-Command lazydocker -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ lazydocker 管理工具已启用 (命令: lzd)" -ForegroundColor Magenta
+        $features.Add('lazydocker 容器管家 (lzd)')
+    } else {
+        $warnings.Add('lazydocker 未安装 (缺少 lazydocker: 请运行 scoop install lazydocker)')
     }
-    if (Get-Command nvim -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ neovim 已设置为默认编辑器" -ForegroundColor Blue
+
+    # 7. Neovim
+    if ((Get-Command nvim -CommandType Application -ErrorAction SilentlyContinue) -and ($env:EDITOR -eq 'nvim')) {
+        $features.Add('Neovim 默认编辑器 (v/fv)')
+    } else {
+        $warnings.Add('Neovim 未就绪 (建议运行: scoop install neovim)')
     }
-    if (Get-Command zoxide -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ zoxide 智能跳转已启用 (命令: z)" -ForegroundColor Yellow
+
+    # 8. zoxide
+    $hasZoxide = [bool](Get-Command zoxide -CommandType Application -ErrorAction SilentlyContinue)
+    $zoxideHooked = $profileZoxideReady -or $script:profileZoxideReady -or [bool](Get-Command __zoxide_z -ErrorAction SilentlyContinue)
+    if ($hasZoxide -and $zoxideHooked) {
+        $features.Add('zoxide 智能目录快跳 (z/zi)')
+    } elseif ($hasZoxide) {
+        $features.Add('zoxide 智能跳转 (CLI模式就绪)')
+    } else {
+        $warnings.Add('zoxide 智能跳转未生效 (缺少 zoxide: 请运行 scoop install zoxide)')
     }
+
+    # 9. fif (Find in files)
+    $hasRg = [bool](Get-Command rg -CommandType Application -ErrorAction SilentlyContinue)
+    if ($hasRg -and $hasFzf -and $hasBat) {
+        $features.Add('fif 全文代码检索 (fif <词>)')
+    } else {
+        $missing = @()
+        if (-not $hasRg) { $missing += 'ripgrep' }
+        if (-not $hasFzf) { $missing += 'fzf' }
+        if (-not $hasBat) { $missing += 'bat' }
+        $warnings.Add("fif 全文检索未就绪 (缺少 $($missing -join ', '): 建议运行 scoop install $($missing -join ' '))")
+    }
+
+    # 10. Fastfetch
     if (Get-Command fastfetch -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ fastfetch 系统信息工具已启动" -ForegroundColor DarkGray
+        $features.Add('fastfetch 动漫硬件看板')
+    } else {
+        $warnings.Add('fastfetch 硬件面板未就绪 (缺少 fastfetch: 请运行 scoop install fastfetch)')
     }
+
+    if ($global:VFOX_SKIPPED) {
+        $warnings.Add('vfox 版本管理初始化失败或超时，本次已跳过')
+    }
+
+    $winWidth = 100
+    try { $winWidth = $Host.UI.RawUI.WindowSize.Width } catch {}
+
+    if ($winWidth -lt 82) {
+        foreach ($f in $features) {
+            Write-Host "  ✓ $f" -ForegroundColor Green
+        }
+        foreach ($w in $warnings) {
+            Write-Host "  ✗ $w" -ForegroundColor Yellow
+        }
+        Write-Host ""
+        return
+    }
+
+    Write-Host "┌─ 🚀 终端现代化生产力就绪看板 ────────────────────────────────────────────────────────┐" -ForegroundColor DarkCyan
+    for ($i = 0; $i -lt $features.Count; $i += 2) {
+        $item1 = $features[$i]
+        $item2 = if ($i + 1 -lt $features.Count) { $features[$i + 1] } else { '' }
+
+        Write-Host "│ " -NoNewline -ForegroundColor DarkCyan
+        Write-Host "✓ " -NoNewline -ForegroundColor Green
+        Write-Host (Pad-DisplayRight $item1 36) -NoNewline -ForegroundColor White
+        Write-Host " " -NoNewline
+
+        if ($item2) {
+            Write-Host "✓ " -NoNewline -ForegroundColor Green
+            Write-Host (Pad-DisplayRight $item2 36) -NoNewline -ForegroundColor White
+        } else {
+            Write-Host (' ' * 38) -NoNewline
+        }
+        Write-Host " │" -ForegroundColor DarkCyan
+    }
+
+    if ($warnings.Count -gt 0) {
+        Write-Host "├───────────────────────────────────────────────────────────────────────────────────────┤" -ForegroundColor DarkYellow
+        foreach ($w in $warnings) {
+            Write-Host "│ " -NoNewline -ForegroundColor DarkYellow
+            Write-Host "✗ " -NoNewline -ForegroundColor Yellow
+            Write-Host (Pad-DisplayRight $w 74) -NoNewline -ForegroundColor Yellow
+            Write-Host " │" -ForegroundColor DarkYellow
+        }
+    }
+
+    Write-Host "├───────────────────────────────────────────────────────────────────────────────────────┤" -ForegroundColor DarkCyan
+    $footer = "⚡ 快捷操作: [Ctrl+R] 历史搜 | [Alt+Z/zi] 目录跳 | [Ctrl+F] 文件填 | [fv] 模糊编辑 | [fif] 全文搜"
+    Write-Host "│ " -NoNewline -ForegroundColor DarkCyan
+    Write-Host (Pad-DisplayRight $footer 76) -NoNewline -ForegroundColor DarkGray
+    Write-Host " │" -ForegroundColor DarkCyan
+    Write-Host "└───────────────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor DarkCyan
     Write-Host ""
 }
 

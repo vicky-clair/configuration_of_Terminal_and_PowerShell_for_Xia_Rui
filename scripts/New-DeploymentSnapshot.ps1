@@ -1,4 +1,6 @@
-﻿# Creates a new deployment snapshot from live system and staged files
+﻿# ============================================================================
+# 创建部署快照脚本 (捕获当前系统实时配置与待部署暂存文件，生成 SHA-256 清单)
+# ============================================================================
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -11,17 +13,18 @@ $liveWt = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb
 $stagedPs = Join-Path $projectRoot 'Microsoft.PowerShell_profile.ps1'
 $stagedWt = Join-Path $projectRoot 'settings.json'
 
-# Copy live files as .before
+# 1. 将系统当前实时文件复制为 .before 原始快照
 Copy-Item -LiteralPath $livePs -Destination (Join-Path $deployDir 'PowerShell7-profile.before.ps1') -Force
 Copy-Item -LiteralPath $liveWt -Destination (Join-Path $deployDir 'Terminal-stable.before.json') -Force
 
-# Copy staged files as .after
+# 2. 将项目待部署文件复制为 .after 目标快照
 Copy-Item -LiteralPath $stagedPs -Destination (Join-Path $deployDir 'PowerShell7-profile.after.ps1') -Force
 Copy-Item -LiteralPath $stagedWt -Destination (Join-Path $deployDir 'Terminal-stable.after.json') -Force
 
-# Copy Manage-TerminalConfiguration.ps1 into the backup directory for independent rollback
+# 3. 将管理脚本拷贝入快照目录，确保该快照具备独立自包含回退能力
 Copy-Item -LiteralPath (Join-Path $projectRoot 'Manage-TerminalConfiguration.ps1') -Destination (Join-Path $deployDir 'Manage-TerminalConfiguration.ps1') -Force
 
+# 4. 计算哈希并生成原子清单 deployment.json
 $manifest = @{
     Created = (Get-Date -Format o)
     Files = @(
@@ -45,6 +48,6 @@ $manifest = @{
 $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $deployDir 'deployment.json') -Encoding UTF8
 Set-Content -LiteralPath (Join-Path $projectRoot '.deployment-path') -Value $deployDir -Encoding UTF8
 
-Write-Host "Created deployment snapshot at: $deployDir" -ForegroundColor Green
-Write-Host "Updated .deployment-path to: $deployDir" -ForegroundColor Cyan
+Write-Host "已创建部署快照目录: $deployDir" -ForegroundColor Green
+Write-Host "已更新部署路径标记 (.deployment-path): $deployDir" -ForegroundColor Cyan
 $deployDir

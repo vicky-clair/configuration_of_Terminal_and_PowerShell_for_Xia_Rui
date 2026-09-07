@@ -20,6 +20,7 @@
 | [`Restore-TerminalConfiguration.ps1`](file:///c:/XMWJJ/powershelldome/Restore-TerminalConfiguration.ps1) | **一键无损回退脚本**：按字节恢复部署前的系统环境，支持 `-IncludeCmd` |
 | [`tests/Verify-Configuration.ps1`](file:///c:/XMWJJ/powershelldome/tests/Verify-Configuration.ps1) | 静态语法、JSON 合法性、GUID、别名与依赖回退自检 |
 | [`tests/Verify-Deployment.ps1`](file:///c:/XMWJJ/powershelldome/tests/Verify-Deployment.ps1) | 独立沙箱部署与回退完整性测试 |
+| [`IDE与开发工具集成指南.md`](file:///c:/XMWJJ/powershelldome/IDE与开发工具集成指南.md) | **IDE 集成专用指南**：VS Code 与 IntelliJ IDEA 内置终端字体、编码与环境配置 |
 | [`backups/system-audit-20260907-082932/`](file:///c:/XMWJJ/powershelldome/backups/system-audit-20260907-082932/) | **系统原始配置快照**（包含原终端设置、Profiles、Clink、Fastfetch、NuShell 等） |
 
 ---

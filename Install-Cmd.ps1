@@ -38,6 +38,7 @@ Ensure-ScoopBuckets @('main', 'extras', 'nerd-fonts')
 # 3. 安装 CMD 现代化所需的核心软件与字体
 Write-Host "`n[2/4] 检查并安装 Clink、Starship 及现代 CLI 工具..." -ForegroundColor Yellow
 $cmdApps = @(
+    'clink',
     'fastfetch',
     'starship',
     'eza',
@@ -47,37 +48,7 @@ $cmdApps = @(
 )
 Install-ScoopAppsIfMissing $cmdApps
 Ensure-FastfetchConfigured
-
-# 检查 Clink 安装状态 (优先检查 Scoop/WinGet/Program Files)
-$clinkFound = (Get-Command clink -ErrorAction SilentlyContinue) -or
-    (Test-Path 'C:\Program Files (x86)\clink\clink.bat') -or
-    (Test-Path "$env:LOCALAPPDATA\clink\clink.bat") -or
-    (Test-Path "$env:USERPROFILE\scoop\apps\clink\current\clink.bat")
-
-if (-not $clinkFound) {
-    Write-Host "[*] 正在安装 Clink Readline 增强引擎..." -ForegroundColor Yellow
-    try {
-        & scoop install clink 2>$null
-    } catch {
-        Write-Warning "Scoop 安装 Clink 遇到提示，尝试通过 WinGet 安装..."
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            winget install chrisant996.Clink --silent --accept-source-agreements --accept-package-agreements
-        }
-    }
-} else {
-    Write-Host "[OK] Clink 引擎已就绪" -ForegroundColor DarkGray
-}
-
-# 4. 部署 Starship 固定赛博朋克主题并优化 Windows 超时
-Write-Host "`n[3/4] 部署 Starship 赛博朋克固定提示符主题..." -ForegroundColor Yellow
-$starshipConfigTarget = "$env:USERPROFILE\.config\starship.toml"
-$starshipSource = Join-Path $projectRoot 'starship\starship.toml'
-if (Test-Path $starshipSource) {
-    $configDir = Split-Path -Parent $starshipConfigTarget
-    if (-not (Test-Path $configDir)) { New-Item -ItemType Directory -Path $configDir -Force | Out-Null }
-    Copy-Item -LiteralPath $starshipSource -Destination $starshipConfigTarget -Force
-    Write-Host "[OK] Starship 赛博朋克固定主题已部署至: $starshipConfigTarget" -ForegroundColor Green
-}
+Ensure-StarshipConfigured
 
 # 5. 部署 CMD AutoRun 脚本与 Clink Lua 脚本并注册
 Write-Host "`n[4/4] 部署 CMD 初始化脚本与当前用户 AutoRun 注册表..." -ForegroundColor Yellow

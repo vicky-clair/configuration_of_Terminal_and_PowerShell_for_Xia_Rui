@@ -40,7 +40,10 @@ $null = Install-AppWithChocoWingetFallback -Name "Fastfetch" -ChocoId "fastfetch
 $null = Install-AppWithChocoWingetFallback -Name "Eza" -ChocoId "eza" -WingetId "eza-community.eza" -ScoopId "eza" -CommandCheck "eza"
 $null = Install-AppWithChocoWingetFallback -Name "Bat" -ChocoId "bat" -WingetId "sharkdp.bat" -ScoopId "bat" -CommandCheck "bat"
 $null = Install-AppWithChocoWingetFallback -Name "Zoxide" -ChocoId "zoxide" -WingetId "ajeetdsouza.zoxide" -ScoopId "zoxide" -CommandCheck "zoxide"
+Ensure-ScoopBuckets @('nerd-fonts')
+Install-ScoopAppsIfMissing @('nerd-fonts/JetBrainsMono-NF')
 Ensure-FastfetchConfigured
+Ensure-StarshipConfigured
 
 # 4. 配置 NuShell 目录结构与环境文件 (env.nu)
 Write-Host "`n[2/4] 配置 NuShell 运行环境 (env.nu)..." -ForegroundColor Yellow
