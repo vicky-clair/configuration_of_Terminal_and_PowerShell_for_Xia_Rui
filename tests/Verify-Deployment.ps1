@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $snapshotRoot = Join-Path $projectRoot 'backups\deployment-20260907-060507'
 $testRoot = Join-Path $PSScriptRoot ('deployment-test-' + [guid]::NewGuid().ToString('N'))
@@ -29,8 +29,20 @@ try {
     foreach ($entry in $manifest.Files) {
         if ((Get-FileHash -LiteralPath $entry.Target).Hash -ne $entry.AfterSHA256) { throw 'WhatIf changed a file.' }
     }
+    function Append-TestLineSafely([string]$Path, [string]$Value) {
+        for ($retry = 0; $retry -lt 10; $retry++) {
+            try {
+                [System.IO.File]::AppendAllLines($Path, [string[]]@($Value))
+                return
+            } catch [System.IO.IOException] {
+                Start-Sleep -Milliseconds 100
+            }
+        }
+        [System.IO.File]::AppendAllLines($Path, [string[]]@($Value))
+    }
+
     # A later user edit must survive in the pre-rollback rescue snapshot.
-    Add-Content -LiteralPath $manifest.Files[0].Target -Value '# later user edit'
+    Append-TestLineSafely $manifest.Files[0].Target '# later user edit'
     $laterHash = (Get-FileHash -LiteralPath $manifest.Files[0].Target).Hash
     & (Join-Path $projectRoot 'Manage-TerminalConfiguration.ps1') -Mode Rollback -BackupDirectory $fixtureSnapshots
     foreach ($entry in $manifest.Files) {
@@ -40,7 +52,7 @@ try {
     if ((Get-FileHash -LiteralPath (Join-Path $rescue.FullName $manifest.Files[0].After)).Hash -ne $laterHash) {
         throw 'Later user edits were not backed up.'
     }
-    Add-Content -LiteralPath $manifest.Files[1].Target -Value ' '
+    Append-TestLineSafely $manifest.Files[1].Target ' '
     $blocked = $false
     try { & (Join-Path $projectRoot 'Manage-TerminalConfiguration.ps1') -Mode Apply -BackupDirectory $fixtureSnapshots }
     catch { $blocked = $_.Exception.Message -like 'Configuration changed since backup*' }
@@ -57,5 +69,14 @@ try {
     if (-not $cleanupTarget.StartsWith($allowedParent, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw 'Unexpected cleanup target.'
     }
-    if (Test-Path -LiteralPath $cleanupTarget) { Remove-Item -LiteralPath $cleanupTarget -Recurse -Force }
+    if (Test-Path -LiteralPath $cleanupTarget) {
+        [GC]::Collect()
+        [GC]::WaitForPendingFinalizers()
+        try {
+            Remove-Item -LiteralPath $cleanupTarget -Recurse -Force -ErrorAction Stop
+        } catch {
+            Start-Sleep -Milliseconds 200
+            Remove-Item -LiteralPath $cleanupTarget -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
 }

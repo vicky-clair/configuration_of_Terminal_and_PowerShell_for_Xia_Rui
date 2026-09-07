@@ -1,0 +1,197 @@
+# =====================================================
+# 性能优化与超时控制 (Windows NTFS / 杀毒环境调优)
+# =====================================================
+# 提高目录扫描超时时间（单位：毫秒，Windows 下建议 120~200，彻底消除 Scanning current directory timed out 告警）
+scan_timeout = 200
+
+# 提高命令执行超时时间（单位：毫秒，默认 500）
+command_timeout = 1000
+
+# =====================================================
+# 🌌⚡ 赛博朋克·霓虹渐变主题 Starship
+# 紫 → 粉 → 蓝 → 青 → 霓虹绿
+# 全模块合法，无警告，无 format_via 错误
+# =====================================================
+
+# 赛博朋克色板（供参考）
+# 紫 #c792ea
+# 粉 #ff79c6
+# 蓝 #82aaff
+# 青 #8be9fd
+# 绿 #50fa7b
+
+# -----------------------------------------------------
+# 🟣 提示符 (紫色)
+# -----------------------------------------------------
+[character]
+success_symbol = "[](bold bright-purple)"   # 赛博能量符号
+error_symbol   = "[](bold bright-red) "
+
+# -----------------------------------------------------
+# 🔋 电池 (粉色)
+# -----------------------------------------------------
+[battery]
+full_symbol = "🔋 "
+charging_symbol = "⚡🔌 "
+discharging_symbol = "💀🔋 "
+
+[[battery.display]]
+threshold = 40
+style = "bold bright-magenta"
+
+# -----------------------------------------------------
+# 📁 目录 (蓝色)
+# -----------------------------------------------------
+[directory]
+style = "bold bright-blue"
+truncation_length = 3
+read_only = " 🔒"
+format = "📁 [$path]($style)[$read_only]($read_only_style) "
+
+# -----------------------------------------------------
+# ⏱️ 命令时长 (青色)
+# -----------------------------------------------------
+[cmd_duration]
+min_time = 8000
+format = " ⏱️ [$duration](bold bright-cyan)"
+
+# -----------------------------------------------------
+# 🧠 内存 (亮青)
+# -----------------------------------------------------
+[memory_usage]
+disabled = false
+threshold = 60
+symbol = "🧠 "
+style = "bold bright-cyan"
+format = "🧠 [$ram]($style) "
+
+# -----------------------------------------------------
+# 💻 主机名 (霓虹绿)
+# -----------------------------------------------------
+[hostname]
+style = "bold bright-green"
+format = "⚡ [$hostname]($style)"
+disabled = false
+
+# -----------------------------------------------------
+# Git 全渐变设计
+# -----------------------------------------------------
+
+# 🌿 Git 分支 (粉色)
+[git_branch]
+symbol = "🌿 "
+style = "bold bright-magenta"
+format = " $symbol[$branch]($style) "
+
+# 📝 Git 修改 (蓝色)
+[git_status]
+style = "bold bright-blue"
+conflicted = "⚔️ "
+ahead = "🚀 ×${count}"
+behind = "🐢 ×${count}"
+diverged = "🌀 🚀 ×${ahead_count} 🐢 ×${behind_count}"
+untracked = "🔍 ×${count}"
+modified = "📝 ×${count}"
+staged = "📤 ×${count}"
+deleted = "🗑️ ×${count}"
+format = "[$all_status$ahead_behind]($style)"
+
+# 🔗 Git 提交 (紫色)
+[git_commit]
+style = "bold bright-purple"
+commit_hash_length = 8
+format = "🔗 [$hash]($style) "
+
+# ⏳ Git 状态 (青色)
+[git_state]
+style = "bold bright-cyan"
+format = "⏳ [$state( $progress_current/$progress_total)]($style) "
+
+# -----------------------------------------------------
+# 🧩 语言 Runtime 全统一“霓虹芯片”风格
+# -----------------------------------------------------
+# 所有使用：
+# (via 🧩 symbol version) 并带上渐变风颜色
+
+# 🐍 Python（紫）
+[python]
+symbol = "🐍 "
+style = "bold bright-purple"
+format = '(via 🧩 [$symbol$version]($style)) '
+
+# 🟢 Node.js（粉）
+[nodejs]
+symbol = "🟢 "
+style = "bold bright-magenta"
+format = '(via 🧩 [$symbol$version]($style)) '
+
+# 🦀 Rust（蓝）
+[rust]
+symbol = "🦀 "
+style = "bold bright-blue"
+format = '(via 🧩 [$symbol$version]($style)) '
+
+# 💙 Go（青）
+[golang]
+symbol = "💙 "
+style = "bold bright-cyan"
+format = '(via 🧩 [$symbol$version]($style)) '
+
+# ☕ Java（霓虹绿）
+[java]
+symbol = "☕ "
+style = "bold bright-green"
+format = '(via 🧩 [$symbol$version]($style)) '
+
+# 🧡 Kotlin（亮粉）
+[kotlin]
+symbol = "🧡 "
+style = "bold bright-magenta"
+format = '(via 🧩 [$symbol$version]($style)) '
+
+# 🦅 Swift
+[swift]
+symbol = "🦅 "
+style = "bold bright-blue"
+format = '(via 🧩 [$symbol$version]($style)) '
+
+# 🌙 Lua
+[lua]
+symbol = "🌙 "
+style = "bold bright-purple"
+format = '(via 🧩 [$symbol$version]($style)) '
+
+# ⚡ Zig
+[zig]
+symbol = "⚡ "
+style = "bold bright-yellow"
+format = '(via 🧩 [$symbol$version]($style)) '
+
+# 🔧 C / C++
+[c]
+symbol = "🔧 "
+style = "bold bright-blue"
+format = '(via 🧩 [$symbol$version]($style)) '
+
+[cpp]
+symbol = "💠 "
+style = "bold bright-cyan"
+format = '(via 🧩 [$symbol$version]($style)) '
+
+# 🐘 PHP
+[php]
+symbol = "🐘 "
+style = "bold bright-blue"
+format = '(via 🧩 [$symbol$version]($style)) '
+
+# 🎯 Dart
+[dart]
+symbol = "🎯 "
+style = "bold bright-cyan"
+format = '(via 🧩 [$symbol$version]($style)) '
+
+# 📦 Package（霓虹绿）
+[package]
+symbol = "📦 "
+style = "bold bright-green"
+format = "📦 [$version]($style) "

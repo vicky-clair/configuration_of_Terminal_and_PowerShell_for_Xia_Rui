@@ -1,0 +1,13 @@
+# Local machine state pointers
+.deployment-path
+.last-install-backup
+
+# Ephemeral runtime backups
+backups/install-backup-*
+backups/system-audit-*
+
+# Test fixtures and temporary directories
+tests/tmp-*
+tests/deployment-test-*
+*.tmp
+*.log

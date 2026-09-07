@@ -67,25 +67,13 @@ if ($Mode -eq 'Apply') {
 if (-not $PSCmdlet.ShouldProcess(($allowedTargets -join ', '), $Mode)) { return }
 
 # Capture the current bytes for recovery. Rollback also saves later user edits to disk.
-function Set-TargetBytesSafely([string]$Path, [byte[]]$Bytes) {
-    for ($retry = 0; $retry -lt 10; $retry++) {
-        try {
-            [System.IO.File]::WriteAllBytes($Path, $Bytes)
-            return
-        } catch [System.IO.IOException] {
-            Start-Sleep -Milliseconds 100
-        }
-    }
-    [System.IO.File]::WriteAllBytes($Path, $Bytes)
-}
-
 $priorBytes = @{}
 foreach ($entry in $manifest.Files) { $priorBytes[$entry.Target] = [System.IO.File]::ReadAllBytes($entry.Target) }
 if ($Mode -eq 'Rollback') {
     $rescueDirectory = Join-Path $backupRoot ('pre-rollback-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
     New-Item -ItemType Directory -Path $rescueDirectory | Out-Null
     foreach ($entry in $manifest.Files) {
-        Set-TargetBytesSafely (Join-Path $rescueDirectory $entry.After) $priorBytes[$entry.Target]
+        [System.IO.File]::WriteAllBytes((Join-Path $rescueDirectory $entry.After), $priorBytes[$entry.Target])
     }
     Write-Output "Saved current configuration before rollback: $rescueDirectory"
 }
@@ -101,7 +89,7 @@ try {
         }
         $bytes = [System.IO.File]::ReadAllBytes((Join-Path $backupRoot $entry.$version))
         $modified += $entry.Target
-        Set-TargetBytesSafely $entry.Target $bytes
+        [System.IO.File]::WriteAllBytes($entry.Target, $bytes)
         if ((Get-FileHash -LiteralPath $entry.Target -Algorithm SHA256).Hash -ne $entry.($version + 'SHA256')) {
             throw "Written configuration failed verification: $($entry.Target)"
         }
@@ -109,7 +97,7 @@ try {
 } catch {
     $operationError = $_
     foreach ($target in $modified) {
-        try { Set-TargetBytesSafely $target $priorBytes[$target] }
+        try { [System.IO.File]::WriteAllBytes($target, $priorBytes[$target]) }
         catch { Write-Warning "Automatic recovery failed for $target. Use the snapshots in $backupRoot. $_" }
     }
     throw $operationError

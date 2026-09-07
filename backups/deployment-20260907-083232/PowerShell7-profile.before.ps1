@@ -46,90 +46,17 @@ if (Get-Command git -CommandType Application -ErrorAction SilentlyContinue) {
 }
 Set-Alias grep Select-String
 
-# Yazi file manager integration with automatic directory changing upon exit
-if (Get-Command yazi -CommandType Application -ErrorAction SilentlyContinue) {
-    function y {
-        $tmp = [System.IO.Path]::GetTempFileName()
-        & yazi @args --cwd-file="$tmp"
-        if (Test-Path $tmp) {
-            $cwd = (Get-Content -Path $tmp -ErrorAction SilentlyContinue | Out-String).Trim()
-            if (-not [String]::IsNullOrEmpty($cwd) -and $cwd -ne $PWD.Path -and (Test-Path $cwd)) {
-                Set-Location -- $cwd
-            }
-            Remove-Item -Path $tmp -Force -ErrorAction SilentlyContinue
-        }
-    }
-}
-
-# Lazydocker alias
-if (Get-Command lazydocker -CommandType Application -ErrorAction SilentlyContinue) {
-    Set-Alias lzd lazydocker
-}
-
-# Neovim as default editor
-if (Get-Command nvim -CommandType Application -ErrorAction SilentlyContinue) {
-    $env:EDITOR = 'nvim'
-    $env:VISUAL = 'nvim'
-}
-
-# Integrate fd into FZF if available
-if (Get-Command fd -CommandType Application -ErrorAction SilentlyContinue) {
-    $env:FZF_DEFAULT_COMMAND = 'fd --type f --hidden --exclude .git'
-    $env:FZF_ALT_C_COMMAND = 'fd --type d --hidden --exclude .git'
-}
-
 function Log-Info($msg)  { Write-Host "[INFO]  $msg" -ForegroundColor Cyan }
 function Log-Warn($msg)  { Write-Host "[WARN]  $msg" -ForegroundColor Yellow }
 function Log-Error($msg) { Write-Host "[ERROR] $msg" -ForegroundColor Red }
 
 function Show-SystemInfo {
-    if ($env:POWERSHELL_PROFILE_MINIMAL -eq '1' -or $env:POWERSHELL_PROFILE_BANNER -eq '0') { return }
     if (Get-Command fastfetch -CommandType Application -ErrorAction SilentlyContinue) {
         $configFile = Join-Path $env:USERPROFILE '.config\fastfetch\config.jsonc'
         if (Test-Path -LiteralPath $configFile -PathType Leaf) {
             fastfetch -c $configFile @args
         } else { fastfetch @args }
     } else { Write-Warning 'Fastfetch is not installed. Run: scoop install fastfetch' }
-}
-
-# Feature status card: displays active CLI tool integrations and hotkeys.
-# Set $env:POWERSHELL_PROFILE_TIPS = '0' to disable.
-function Show-FeatureTips {
-    if ($env:POWERSHELL_PROFILE_MINIMAL -eq '1' -or $env:POWERSHELL_PROFILE_BANNER -eq '0' -or $env:POWERSHELL_PROFILE_TIPS -eq '0') { return }
-
-    if ($global:VFOX_SKIPPED) {
-        Write-Host "  ⚠ vfox 初始化失败或超时，本次已跳过" -ForegroundColor Yellow
-    }
-    if (Get-Command yazi -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ yazi 文件管理器已集成 (命令: y)" -ForegroundColor Green
-    }
-    if (Get-Command fd -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ fd 已集成到 FZF" -ForegroundColor Cyan
-    }
-    $hasBat = [bool](Get-Command bat -CommandType Application -ErrorAction SilentlyContinue)
-    $hasEza = [bool](Get-Command eza -CommandType Application -ErrorAction SilentlyContinue)
-    if ($hasBat -and $hasEza) {
-        Write-Host "  ✓ bat + eza 预览集成完成" -ForegroundColor Green
-    }
-    if (Get-Command fzf -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ fzf 模糊查找已加载 (Ctrl+R / Ctrl+F / Alt+Z)" -ForegroundColor Cyan
-    }
-    if ($hasEza) {
-        Write-Host "  ✓ eza 现代化 ls 已启用 (别名: ls, ll, la)" -ForegroundColor Green
-    }
-    if (Get-Command lazydocker -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ lazydocker 管理工具已启用 (命令: lzd)" -ForegroundColor Magenta
-    }
-    if (Get-Command nvim -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ neovim 已设置为默认编辑器" -ForegroundColor Blue
-    }
-    if (Get-Command zoxide -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ zoxide 智能跳转已启用 (命令: z)" -ForegroundColor Yellow
-    }
-    if (Get-Command fastfetch -CommandType Application -ErrorAction SilentlyContinue) {
-        Write-Host "  ✓ fastfetch 系统信息工具已启动" -ForegroundColor DarkGray
-    }
-    Write-Host ""
 }
 
 # Preserved from the active profile during deployment.
@@ -283,44 +210,23 @@ if ($env:POWERSHELL_PROFILE_VFOX -ne '0' -and
     } catch { Write-Warning "vfox: $_" }
 }
 
-# Prompt Theme Initialization: supports Fixed (Catppuccin Mocha), Random, or Starship.
-if ($env:POWERSHELL_THEME_MODE -eq 'starship' -or $env:POWERSHELL_POSH_THEME -eq 'starship') {
-    if (Get-Command starship -CommandType Application -ErrorAction SilentlyContinue) {
-        Invoke-Expression (&starship init powershell)
-    }
-} elseif (Get-Command oh-my-posh -CommandType Application -ErrorAction SilentlyContinue) {
+# Load a fixed local theme. Never download a theme while opening a terminal.
+# Override with $env:POWERSHELL_POSH_THEME (a local path) before dot-sourcing.
+if (Get-Command oh-my-posh -CommandType Application -ErrorAction SilentlyContinue) {
     $profileTheme = $null
     $profileThemeCandidates = @()
-    $isRandom = ($env:POWERSHELL_THEME_MODE -eq 'random' -or $env:POWERSHELL_POSH_THEME -eq 'random' -or (-not $env:POWERSHELL_THEME_MODE -and -not $env:POWERSHELL_POSH_THEME))
-    if ($isRandom) {
-        $themesDir = Join-Path $env:USERPROFILE 'oh-my-posh-themes'
-        if (-not (Test-Path $themesDir) -and $env:POSH_THEMES_PATH) { $themesDir = $env:POSH_THEMES_PATH }
-        if (Test-Path $themesDir) {
-            $randomThemes = @(Get-ChildItem -LiteralPath $themesDir -Filter '*.omp.json' -ErrorAction SilentlyContinue)
-            if ($randomThemes.Count -gt 0) {
-                $chosen = $randomThemes | Get-Random
-                $profileTheme = $chosen.FullName
-                $displayTheme = $chosen.BaseName -replace '\.omp$', ''
-                Write-Host "✨ 今日随机主题: $displayTheme ✨" -ForegroundColor Cyan
-            }
-        }
-    } elseif ($env:POWERSHELL_POSH_THEME -and $env:POWERSHELL_POSH_THEME -ne 'random') {
+    if ($env:POWERSHELL_POSH_THEME) {
         $profileThemeCandidates += $env:POWERSHELL_POSH_THEME
     } else {
-        # Prefer Catppuccin Mocha to match Windows Terminal color scheme
-        $profileThemeCandidates += Join-Path $env:USERPROFILE 'oh-my-posh-themes\catppuccin_mocha.omp.json'
         if ($env:POSH_THEMES_PATH) {
-            $profileThemeCandidates += Join-Path $env:POSH_THEMES_PATH 'catppuccin_mocha.omp.json'
             $profileThemeCandidates += Join-Path $env:POSH_THEMES_PATH 'jandedobbeleer.omp.json'
         }
         $profileThemeCandidates += Join-Path $env:USERPROFILE 'oh-my-posh-themes\jandedobbeleer.omp.json'
     }
-    if (-not $profileTheme) {
-        foreach ($candidate in $profileThemeCandidates) {
-            if (Test-Path -LiteralPath $candidate -PathType Leaf) {
-                $profileTheme = (Resolve-Path -LiteralPath $candidate).ProviderPath
-                break
-            }
+    foreach ($candidate in $profileThemeCandidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            $profileTheme = (Resolve-Path -LiteralPath $candidate).ProviderPath
+            break
         }
     }
     if ($profileTheme) {
@@ -328,12 +234,7 @@ if ($env:POWERSHELL_THEME_MODE -eq 'starship' -or $env:POWERSHELL_POSH_THEME -eq
             $profileInit = (& oh-my-posh init pwsh --config $profileTheme | Out-String)
             if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($profileInit)) {
                 Invoke-Expression $profileInit
-            } else {
-                $fallbackTheme = Join-Path $env:USERPROFILE 'oh-my-posh-themes\catppuccin_mocha.omp.json'
-                if (Test-Path $fallbackTheme) {
-                    Invoke-Expression (& oh-my-posh init pwsh --config $fallbackTheme | Out-String)
-                }
-            }
+            } else { Write-Warning 'Oh My Posh initialization failed.' }
         } catch { Write-Warning "Oh My Posh: $_" }
     } else {
         Write-Verbose 'No local Oh My Posh theme. Set POWERSHELL_POSH_THEME to a local .omp.json file.'
@@ -352,9 +253,8 @@ if (Get-Command zoxide -CommandType Application -ErrorAction SilentlyContinue) {
     } catch { Write-Warning "zoxide: $_" }
 }
 
-# Terminal-Icons adds rich icons to directory listings. Enabled by default for interactive sessions.
-# Set $env:POWERSHELL_PROFILE_ICONS = '0' to disable if ultra-fast startup is preferred.
-if ($env:POWERSHELL_PROFILE_ICONS -ne '0') {
+# Icons can cost startup time; opt in when you want icons on Get-ChildItem output.
+if ($env:POWERSHELL_PROFILE_ICONS -eq '1') {
     Import-Module Terminal-Icons -ErrorAction SilentlyContinue
 }
 
@@ -400,10 +300,5 @@ if (Get-Module -ListAvailable PSReadLine) {
     } catch { Write-Warning "PSReadLine/PSFzf: $_" }
 }
 
-
-# Interactive startup banner: displays Fastfetch ASCII art and hardware telemetry.
-# Set $env:POWERSHELL_PROFILE_BANNER = '0' to disable if a silent prompt is preferred.
-if ($env:POWERSHELL_PROFILE_BANNER -ne '0' -and $env:POWERSHELL_PROFILE_MINIMAL -ne '1') {
-    Show-SystemInfo
-    Show-FeatureTips
-}
+# Optional banner; no Clear-Host, random greeting, or artificial startup delay.
+if ($env:POWERSHELL_PROFILE_BANNER -eq '1') { Show-SystemInfo }

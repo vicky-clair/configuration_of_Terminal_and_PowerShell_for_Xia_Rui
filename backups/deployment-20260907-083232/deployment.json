@@ -1,0 +1,19 @@
+{
+  "Files": [
+    {
+      "AfterSHA256": "0C638AFBC1953C4B41AFA55F70E876497358C6D684AE5A7CB44AF6EC124271AF",
+      "After": "PowerShell7-profile.after.ps1",
+      "Target": "C:\\Users\\xasr2\\Documents\\PowerShell\\Microsoft.PowerShell_profile.ps1",
+      "Before": "PowerShell7-profile.before.ps1",
+      "BeforeSHA256": "3F0BE346F4143D3C748807459CA43E61530C0C3350583BA3F74634C8F792389F"
+    },
+    {
+      "AfterSHA256": "8BFD8A81E096BCB382CF2B75549626C6982DFBC2A8AA67DA4009881B7C03A7D1",
+      "After": "Terminal-stable.after.json",
+      "Target": "C:\\Users\\xasr2\\AppData\\Local\\Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json",
+      "Before": "Terminal-stable.before.json",
+      "BeforeSHA256": "A0A2AE57051D8AD88C2D49922F73C687D2BB9F6B80D7B4B1D476BDEDC423BE42"
+    }
+  ],
+  "Created": "2026-09-07T08:32:32.8294590+08:00"
+}

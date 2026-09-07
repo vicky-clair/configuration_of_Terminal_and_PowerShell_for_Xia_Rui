@@ -1,4 +1,4 @@
-# Run in a disposable child process: pwsh -NoProfile -File .\tests\Verify-Configuration.ps1
+﻿# Run in a disposable child process: pwsh -NoProfile -File .\tests\Verify-Configuration.ps1
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $profileFile = Join-Path $projectRoot 'Microsoft.PowerShell_profile.ps1'
@@ -19,6 +19,49 @@ $parseTokens = $null
 $parseErrors = $null
 $null = [System.Management.Automation.Language.Parser]::ParseFile($profileFile, [ref]$parseTokens, [ref]$parseErrors)
 Assert-True ($parseErrors.Count -eq 0) ($parseErrors | Out-String)
+
+# Verify CMD configuration assets
+$cmdAutorun = Join-Path $projectRoot 'cmd\autorun.cmd'
+$cmdStarship = Join-Path $projectRoot 'cmd\clink\starship.lua'
+$cmdSettings = Join-Path $projectRoot 'cmd\clink\settings.lua'
+$cmdInstaller = Join-Path $projectRoot 'cmd\Install-CmdConfiguration.ps1'
+Assert-True (Test-Path -LiteralPath $cmdAutorun -PathType Leaf) 'cmd\autorun.cmd is missing.'
+Assert-True (Test-Path -LiteralPath $cmdStarship -PathType Leaf) 'cmd\clink\starship.lua is missing.'
+Assert-True (Test-Path -LiteralPath $cmdSettings -PathType Leaf) 'cmd\clink\settings.lua is missing.'
+Assert-True (Test-Path -LiteralPath $cmdInstaller -PathType Leaf) 'cmd\Install-CmdConfiguration.ps1 is missing.'
+$cmdTokens = $null
+$cmdErrors = $null
+$null = [System.Management.Automation.Language.Parser]::ParseFile($cmdInstaller, [ref]$cmdTokens, [ref]$cmdErrors)
+Assert-True ($cmdErrors.Count -eq 0) ($cmdErrors | Out-String)
+$cmdProfileEntry = $settings.profiles.list | Where-Object { $_.guid -eq '{0caa0dad-35be-5f56-a8ff-afceeeaa6101}' }
+Assert-True ($cmdProfileEntry.startingDirectory -eq '%USERPROFILE%') 'Command Prompt startingDirectory is not %USERPROFILE%.'
+
+# Verify Fastfetch custom assets
+$ffAscii = Join-Path $projectRoot 'fastfetch\ascii.txt'
+$ffConfig = Join-Path $projectRoot 'fastfetch\config.jsonc'
+Assert-True (Test-Path -LiteralPath $ffAscii -PathType Leaf) 'fastfetch\ascii.txt is missing.'
+Assert-True (Test-Path -LiteralPath $ffConfig -PathType Leaf) 'fastfetch\config.jsonc is missing.'
+
+# Verify standalone installation and restore scripts
+$installerScripts = @(
+    'Install-PowerShell7.ps1',
+    'Install-WinPowerShell51.ps1',
+    'Install-Cmd.ps1',
+    'Install-NuShell.ps1',
+    'Install-MSYS2.ps1',
+    'Install-All.ps1',
+    'Restore-All.ps1',
+    'Restore-TerminalConfiguration.ps1',
+    'scripts\TerminalSetupCommon.ps1'
+)
+foreach ($scriptName in $installerScripts) {
+    $scriptPath = Join-Path $projectRoot $scriptName
+    Assert-True (Test-Path -LiteralPath $scriptPath -PathType Leaf) "Missing installer script: $scriptName"
+    $tokens = $null
+    $errors = $null
+    $null = [System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$errors)
+    Assert-True ($errors.Count -eq 0) "Parse errors in $scriptName`: $($errors | Out-String)"
+}
 
 $savedPath = $env:PATH
 $savedScoop = $env:SCOOP
@@ -78,5 +121,14 @@ try {
     if (-not $cleanupTarget.StartsWith($testParent, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "Refusing to clean an unexpected path: $cleanupTarget"
     }
-    if (Test-Path -LiteralPath $cleanupTarget) { Remove-Item -LiteralPath $cleanupTarget -Recurse -Force }
+    if (Test-Path -LiteralPath $cleanupTarget) {
+        [GC]::Collect()
+        [GC]::WaitForPendingFinalizers()
+        try {
+            Remove-Item -LiteralPath $cleanupTarget -Recurse -Force -ErrorAction Stop
+        } catch {
+            Start-Sleep -Milliseconds 200
+            Remove-Item -LiteralPath $cleanupTarget -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
