@@ -151,14 +151,20 @@ function Install-ScoopAppsIfMissing {
     if ($PathCheck -and $Apps.Count -ne 1) { throw 'Path verification requires exactly one application.' }
     Ensure-ScoopInstalled
     $listOutput = & scoop list
-    if ($LASTEXITCODE -ne 0) { throw 'Scoop list failed.' }
-    $installed = @($listOutput | ForEach-Object {
-        if ($_.PSObject.Properties['Name'] -and $_.Name) {
-            $_.Name.ToString().Trim()
-        } elseif ($_ -match '^Name\s+:\s+(.+)$') {
-            $matches[1].Trim()
-        }
-    })
+    $listText = ($listOutput -join "`n")
+    if ($LASTEXITCODE -ne 0 -and $listText -notmatch "There aren't any apps installed") {
+        throw 'Scoop list failed.'
+    }
+    $installed = @()
+    if ($listText -notmatch "There aren't any apps installed") {
+        $installed = @($listOutput | ForEach-Object {
+            if ($_.PSObject.Properties['Name'] -and $_.Name) {
+                $_.Name.ToString().Trim()
+            } elseif ($_ -match '^Name\s+:\s+(.+)$') {
+                $matches[1].Trim()
+            }
+        })
+    }
 
     $wingetFallbackMap = @{
         'pwsh'        = 'Microsoft.PowerShell'
