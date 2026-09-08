@@ -167,23 +167,43 @@ if (which fastfetch | is-not-empty) {
 print ""
 }
 
-# 4. 现代化命令行别名 (Eza, Bat, Git)
+# 4. 现代化命令行别名 (Eza, Bat, Git, Dev & System Tools)
+alias .. = cd ..
+alias ... = cd ../..
+alias .... = cd ../../..
+
 alias ll = ^eza -l --icons --git --header
 alias la = ^eza -la --icons --git --header
 alias lt = ^eza --tree --level=2 --icons
+alias lt3 = ^eza --tree --level=3 --icons
 
 alias cat = ^bat --paging=never
 
 alias g = git
 alias gst = git status
+alias ga = git add
+alias gaa = git add --all
+alias gc = git commit -m
+alias gcm = git commit -m
+alias gca = git commit --amend
 alias gco = git checkout
+alias gcb = git checkout -b
 alias gb = git branch
+alias gsw = git switch
 alias glog = git log --oneline --graph --decorate
 alias gpull = git pull
 alias gps = git push
+alias gd = git diff
+alias gdiff = git diff
 alias lg = lazygit
 alias lzg = lazygit
 alias lzd = lazydocker
+
+alias v = nvim
+alias c = code
+alias y = yazi
+alias ports = netstat -ano
+alias myip = ^fastfetch -s localip
 '@
 
 Set-TerminalText $configNuPath $configNuContent

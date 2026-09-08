@@ -25,8 +25,88 @@
             "id": "User.splitPane.A6751878"
         },
         {
+            "command": 
+            {
+                "action": "splitPane",
+                "split": "horizontal",
+                "splitMode": "duplicate"
+            },
+            "id": "User.splitPane.Horizontal"
+        },
+        {
+            "command": 
+            {
+                "action": "splitPane",
+                "split": "vertical",
+                "splitMode": "duplicate"
+            },
+            "id": "User.splitPane.Vertical"
+        },
+        {
+            "command": "closePane",
+            "id": "User.closePane"
+        },
+        {
             "command": "find",
             "id": "User.find"
+        },
+        {
+            "command": "commandPalette",
+            "id": "User.commandPalette"
+        },
+        {
+            "command": "clearBuffer",
+            "id": "User.clearBuffer"
+        },
+        {
+            "command": "newTab",
+            "id": "User.newTab"
+        },
+        {
+            "command": 
+            {
+                "action": "nextTab"
+            },
+            "id": "User.nextTab"
+        },
+        {
+            "command": 
+            {
+                "action": "prevTab"
+            },
+            "id": "User.prevTab"
+        },
+        {
+            "command": 
+            {
+                "action": "moveFocus",
+                "direction": "up"
+            },
+            "id": "User.moveFocus.Up"
+        },
+        {
+            "command": 
+            {
+                "action": "moveFocus",
+                "direction": "down"
+            },
+            "id": "User.moveFocus.Down"
+        },
+        {
+            "command": 
+            {
+                "action": "moveFocus",
+                "direction": "left"
+            },
+            "id": "User.moveFocus.Left"
+        },
+        {
+            "command": 
+            {
+                "action": "moveFocus",
+                "direction": "right"
+            },
+            "id": "User.moveFocus.Right"
         }
     ],
     "alwaysOnTop": false,
@@ -48,8 +128,56 @@
             "keys": "ctrl+shift+f"
         },
         {
+            "id": "User.commandPalette",
+            "keys": "ctrl+shift+p"
+        },
+        {
             "id": "User.splitPane.A6751878",
             "keys": "alt+shift+d"
+        },
+        {
+            "id": "User.splitPane.Horizontal",
+            "keys": "alt+shift+minus"
+        },
+        {
+            "id": "User.splitPane.Vertical",
+            "keys": "alt+shift+plus"
+        },
+        {
+            "id": "User.closePane",
+            "keys": "ctrl+shift+w"
+        },
+        {
+            "id": "User.clearBuffer",
+            "keys": "ctrl+shift+k"
+        },
+        {
+            "id": "User.newTab",
+            "keys": "ctrl+shift+t"
+        },
+        {
+            "id": "User.nextTab",
+            "keys": "ctrl+tab"
+        },
+        {
+            "id": "User.prevTab",
+            "keys": "ctrl+shift+tab"
+        },
+        {
+            "id": "User.moveFocus.Up",
+            "keys": "alt+up"
+        },
+        {
+            "id": "User.moveFocus.Down",
+            "keys": "alt+down"
+        },
+        {
+            "id": "User.moveFocus.Left",
+            "keys": "alt+left"
+        },
+        {
+            "id": "User.moveFocus.Right",
+            "keys": "alt+right"
         }
     ],
     "newTabMenu": 

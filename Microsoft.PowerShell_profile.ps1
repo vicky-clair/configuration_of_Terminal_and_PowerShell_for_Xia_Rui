@@ -1,4 +1,4 @@
-﻿# Dot-source this file from $PROFILE. No downloads or package installs at startup.
+# Dot-source this file from $PROFILE. No downloads or package installs at startup.
 
 # Scoop normally manages PATH itself. Repair a missing entry without duplicating it.
 $profileScoopRoot = if ($env:SCOOP) { $env:SCOOP } else { [IO.Path]::Combine($env:USERPROFILE, 'scoop') }
@@ -57,10 +57,62 @@ function .... { Set-Location ../../.. }
 
 Set-Alias g git
 function gst { git status @args }
+function ga { git add @args }
+function gaa { git add -A @args }
+function gc { git commit -m @args }
+function gcm { git commit -m @args }
+function gcommit { git commit -m @args }
+function gca { git commit --amend @args }
 function gco { git checkout @args }
+function gcb { git checkout -b @args }
 function gb { git branch @args }
+function gsw { git switch @args }
 function glog { git log --oneline --graph --all @args }
+function gpull { git pull @args }
+function gps { git push @args }
+function gpush { git push @args }
+function gd { git diff @args }
+function gdiff { git diff @args }
+function gundo { git reset --soft HEAD~1 @args }
 Set-Alias grep Select-String
+
+# Developer & System utilities
+function c { if (Get-Command code -CommandType Application -ErrorAction SilentlyContinue) { & code @args } else { Write-Warning "VS Code (code) 未安装或未加入 PATH。" } }
+function mkcd {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) {
+        $null = New-Item -ItemType Directory -Path $Path -Force
+    }
+    Set-Location -LiteralPath $Path
+}
+function touch {
+    param([Parameter(Mandatory = $true, ValueFromRemainingArguments = $true)][string[]]$Paths)
+    foreach ($p in $Paths) {
+        if (-not (Test-Path -LiteralPath $p)) {
+            $null = New-Item -ItemType File -Path $p -Force
+        } else {
+            (Get-Item -LiteralPath $p).LastWriteTime = [DateTime]::Now
+        }
+    }
+}
+function ports {
+    Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+        Select-Object LocalAddress, LocalPort, OwningProcess, @{Name='Process'; Expression={(Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName}} |
+        Sort-Object LocalPort | Format-Table -AutoSize
+}
+function myip {
+    if (Get-Command fastfetch -CommandType Application -ErrorAction SilentlyContinue) {
+        fastfetch -s localip
+    } else {
+        Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+            Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } |
+            Select-Object InterfaceAlias, IPAddress, PrefixLength | Format-Table -AutoSize
+    }
+}
+function reload {
+    . $PROFILE
+    Write-Host "[OK] PowerShell Profile 配置已热重载生效！" -ForegroundColor Green
+}
 
 # Yazi file manager integration with automatic directory changing upon exit
 function y {

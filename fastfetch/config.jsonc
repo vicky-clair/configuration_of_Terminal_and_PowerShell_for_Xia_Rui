@@ -45,6 +45,11 @@
       "keyColor": "#F5C2E7"
     },
     {
+      "type": "gpu",
+      "key": "󰾲",
+      "keyColor": "#CBA6F7"
+    },
+    {
       "type": "board",
       "key": "󰚗",
       "keyColor": "#FAB387"
@@ -59,6 +64,26 @@
       "type": "disk",
       "key": "",
       "keyColor": "#94E2D5"
+    },
+    {
+      "type": "localip",
+      "key": "󰩟",
+      "keyColor": "#89B4FA",
+      "defaultRouteOnly": false,
+      "showIpv4": true,
+      "showIpv6": false,
+      "showMac": false,
+      "format": "{ifname}: {ipv4}"
+    },
+    {
+      "type": "uptime",
+      "key": "",
+      "keyColor": "#F9E2AF"
+    },
+    {
+      "type": "display",
+      "key": "󰍹",
+      "keyColor": "#F5E0DC"
     },
     "break",
     {
