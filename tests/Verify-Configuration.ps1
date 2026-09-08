@@ -48,6 +48,7 @@ Assert-True (Test-Path -LiteralPath $ffConfig -PathType Leaf) '缺少 fastfetch\
 
 # 4. 校验所有独立安装与回退脚本的 AST 语法树无报错
 $installerScripts = @(
+    'Deploy-TerminalConfiguration.ps1',
     'Install-PowerShell7.ps1',
     'Install-WinPowerShell51.ps1',
     'Install-Cmd.ps1',

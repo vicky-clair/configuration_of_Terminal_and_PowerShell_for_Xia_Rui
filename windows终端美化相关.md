@@ -107,7 +107,8 @@
 ### Q4: 启动 Windows Terminal 弹窗提示“找不到所选字体”或“缺少字体”？
 **答：这是因为 Nerd Fonts v3+ 字体家族名变更（实际注册为 `JetBrainsMono NFM` 或 `JetBrainsMono NF`）或字体尚未安装注册所致。**
 - **自适应回退**：项目最新 [`settings.json`](file:///c:/XMWJJ/powershelldome/settings.json) 已将字体配置升级为多级回退链：`"JetBrainsMono NFM, JetBrainsMono NF, JetBrainsMono Nerd Font Mono, Cascadia Code"`，自动优先匹配当前系统安装的 Nerd Font 等宽版（NFM），若均未安装则平滑回退至系统内置代码字体，彻底避免弹窗警告。
-- **自动安装**：安装脚本现已内置 CDN 直连兜底，会自动从高速镜像下载 `JetBrainsMono.zip` 并解压注册到系统字体库。
+- **离线一键安装**：运行 `pwsh -File .\Install-Fonts.ps1`，脚本会自动将项目内置 `fonts/` 目录中的 48 款字体复制注册到系统，零网络依赖且支持进程占用安全跳过。
+- **自动兜底**：若离线目录缺失，安装脚本亦内置 CDN 直连兜底，自动从高速镜像下载 `JetBrainsMono.zip` 并解压注册到系统字体库。
 - **手动安装**：若需手动安装，前往 [Nerd Fonts 官方发布页](https://github.com/ryanoasis/nerd-fonts/releases) 下载 `JetBrainsMono.zip`，解压所有 `.ttf` 文件，全选并右键选择 **“为所有用户安装”**，然后在 Windows Terminal 设置中选择 `JetBrainsMono NFM` 即可。
 
 ### Q5: 打开 NuShell 标签或启动时提示错误 `[出现错误 2147942402 (0x80070002) (启动“nu.exe”时)]`？

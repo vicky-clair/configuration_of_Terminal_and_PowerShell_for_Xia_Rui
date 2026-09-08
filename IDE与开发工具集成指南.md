@@ -44,7 +44,7 @@ Preferences: Open User Settings (JSON)
   // =========================================================================
   // 1. 终端字体配置 (关键：保证 Starship 赛博朋克提示符与文件图标正常渲染)
   // =========================================================================
-  "terminal.integrated.fontFamily": "'JetBrainsMono NFP', 'JetBrainsMono Nerd Font', 'Cascadia Code', monospace",
+  "terminal.integrated.fontFamily": "'JetBrainsMono NFM', 'JetBrainsMono NF', 'JetBrainsMono NFP', 'JetBrainsMono Nerd Font', 'Cascadia Code', monospace",
   "terminal.integrated.fontSize": 14,
   "terminal.integrated.fontWeight": "normal",
 
