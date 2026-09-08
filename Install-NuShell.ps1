@@ -70,7 +70,7 @@ $env.LANG = "zh_CN.UTF-8"
 $env.LC_ALL = "zh_CN.UTF-8"
 
 # Autoload directory
-mkdir ($nu.data-dir | path join "vendor/autoload")
+try { mkdir (($nu.data-dir? | default ("~/.local/share/nushell" | path expand)) | path join "vendor/autoload") } catch {}
 '@
 
 Set-TerminalText $envNuPath $envNuContent
@@ -135,8 +135,8 @@ $env.config = ($env.config? | default {} | merge {
 })
 
 # 2. 启动横幅 (Fastfetch)
-if $nu.is-interactive and (($env.PROFILE_BANNER? | default "1") != "0") and (which fastfetch | is-not-empty) {
-    let conf_file = ($nu.home-path | path join ".config/fastfetch/config.jsonc")
+if ($nu.is-interactive? | default false) and (($env.PROFILE_BANNER? | default "1") != "0") and (which fastfetch | is-not-empty) {
+    let conf_file = ("~/.config/fastfetch/config.jsonc" | path expand)
     if ($conf_file | path exists) {
         ^fastfetch -c $conf_file
     } else {
@@ -145,7 +145,7 @@ if $nu.is-interactive and (($env.PROFILE_BANNER? | default "1") != "0") and (whi
 }
 
 # 3. 现代化功能就绪卡片
-if $nu.is-interactive and (($env.PROFILE_TIPS? | default "1") != "0") {
+if ($nu.is-interactive? | default false) and (($env.PROFILE_TIPS? | default "1") != "0") {
 if (which yazi | is-not-empty) {
     print "  ✓ yazi 文件管理器已集成 (命令: yazi)"
 }
