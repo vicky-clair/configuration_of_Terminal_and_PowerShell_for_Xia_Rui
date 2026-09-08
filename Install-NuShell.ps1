@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     NuShell (nu) 现代化终端环境一键安装与美化配置脚本
 .DESCRIPTION
@@ -135,7 +135,7 @@ $env.config = ($env.config? | default {} | merge {
 })
 
 # 2. 启动横幅 (Fastfetch)
-if $nu.is-interactive and (($env.PROFILE_BANNER? | default "0") == "1") and (which fastfetch | is-not-empty) {
+if $nu.is-interactive and (($env.PROFILE_BANNER? | default "1") != "0") and (which fastfetch | is-not-empty) {
     let conf_file = ($nu.home-path | path join ".config/fastfetch/config.jsonc")
     if ($conf_file | path exists) {
         ^fastfetch -c $conf_file
@@ -145,7 +145,7 @@ if $nu.is-interactive and (($env.PROFILE_BANNER? | default "0") == "1") and (whi
 }
 
 # 3. 现代化功能就绪卡片
-if $nu.is-interactive and (($env.PROFILE_TIPS? | default "0") == "1") {
+if $nu.is-interactive and (($env.PROFILE_TIPS? | default "1") != "0") {
 if (which yazi | is-not-empty) {
     print "  ✓ yazi 文件管理器已集成 (命令: yazi)"
 }

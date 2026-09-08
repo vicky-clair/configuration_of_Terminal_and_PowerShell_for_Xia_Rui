@@ -104,10 +104,11 @@
   ```
   脚本会自动将实际存在的物理路径（如 `D:\Tools\msys64\msys2_shell.cmd`）写入 Terminal 配置中。
 
-### Q4: 启动 Windows Terminal 弹窗提示“找不到所选字体 'JetBrainsMono Nerd Font Mono'”？
-**答：这是字体尚未安装注册或网络中断导致。**
-- **自愈解决**：安装脚本现已内置 CDN 直连兜底，会自动从高速镜像下载 `JetBrainsMono.zip` 并解压注册到 `HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts`。
-- **手动安装**：若需手动安装，前往 [Nerd Fonts 官方发布页](https://github.com/ryanoasis/nerd-fonts/releases) 下载 `JetBrainsMono.zip`，解压所有 `.ttf` 文件，全选并右键选择 **“为所有用户安装”** 即可。
+### Q4: 启动 Windows Terminal 弹窗提示“找不到所选字体”或“缺少字体”？
+**答：这是因为 Nerd Fonts v3+ 字体家族名变更（实际注册为 `JetBrainsMono NFM` 或 `JetBrainsMono NF`）或字体尚未安装注册所致。**
+- **自适应回退**：项目最新 [`settings.json`](file:///c:/XMWJJ/powershelldome/settings.json) 已将字体配置升级为多级回退链：`"JetBrainsMono NFM, JetBrainsMono NF, JetBrainsMono Nerd Font Mono, Cascadia Code"`，自动优先匹配当前系统安装的 Nerd Font 等宽版（NFM），若均未安装则平滑回退至系统内置代码字体，彻底避免弹窗警告。
+- **自动安装**：安装脚本现已内置 CDN 直连兜底，会自动从高速镜像下载 `JetBrainsMono.zip` 并解压注册到系统字体库。
+- **手动安装**：若需手动安装，前往 [Nerd Fonts 官方发布页](https://github.com/ryanoasis/nerd-fonts/releases) 下载 `JetBrainsMono.zip`，解压所有 `.ttf` 文件，全选并右键选择 **“为所有用户安装”**，然后在 Windows Terminal 设置中选择 `JetBrainsMono NFM` 即可。
 
 ### Q5: 打开 NuShell 标签或启动时提示错误 `[出现错误 2147942402 (0x80070002) (启动“nu.exe”时)]`？
 **答：这是因为尚未安装 NuShell 核心程序。**
@@ -203,6 +204,7 @@ pwsh -NoProfile -File .\Deploy-TerminalConfiguration.ps1
 | [`Install-Cmd.ps1`](file:///c:/XMWJJ/powershelldome/Install-Cmd.ps1) | **CMD (命令提示符)** | 自动安装 Clink、Starship、Eza、Bat；**固定 Starship 赛博朋克霓虹主题**；**65001 UTF-8 与完整 Unix/Git Doskey 别名**；通过当前用户注册表 AutoRun 挂载，无需管理员权限，支持 `-Uninstall` 干净卸载。 |
 | [`Install-NuShell.ps1`](file:///c:/XMWJJ/powershelldome/Install-NuShell.ps1) | **NuShell (nu)** | 自动安装 NuShell 及配套工具；**配置 `env.nu` UTF-8 中文环境**；**自动挂载 Starship 赛博朋克提示符与 Zoxide 目录快跳**；配置 Fastfetch 启动横幅与 Unix/Git 常用别名；自动注册 Windows Terminal 配置项。 |
 | [`Install-MSYS2.ps1`](file:///c:/XMWJJ/powershelldome/Install-MSYS2.ps1) | **MSYS2 (bash)** | 定位或自动安装 MSYS2；**配置 `MSYS2_PATH_TYPE=inherit` 继承 Windows 本机环境变量**，可在 MSYS2 中直接调用 Windows 原生安装的工具；配置 `~/.bashrc` 强制 UTF-8、Starship 提示符、Fastfetch 横幅与别名；**自动检查并向 Windows Terminal 注册配置项（支持 `-Msys2InstallPath`）**。 |
+| [`Install-Fonts.ps1`](file:///c:/XMWJJ/powershelldome/Install-Fonts.ps1) | **离线字体独立安装** | **从项目内 `fonts/` 目录极速安装 48 款 JetBrainsMono Nerd Font (NFM/NF/NFP)**，直接复制到系统字体库并自动注册生效，广播 WM_FONTCHANGE 即刻免重启识别，零网络依赖。支持 `-AllUsers` 系统级安装。 |
 | [`Install-All.ps1`](file:///c:/XMWJJ/powershelldome/Install-All.ps1) | **全终端总装** | 一键按序安装配置上述终端环境，支持 `-IncludeNuShell`、`-IncludeMSYS2` 或 `-All` 安装全部 5 种终端。 |
 
 #### 包管理器容错降级与自愈机制（Choco ➜ WinGet ➜ Scoop ➜ CDN 直连）

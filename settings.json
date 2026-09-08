@@ -73,7 +73,7 @@
                 "builtinGlyphs": true,
                 "cellHeight": "1.2",
                 "colorGlyphs": true,
-                "face": "JetBrainsMono Nerd Font Mono",
+                "face": "JetBrainsMono NFM, JetBrainsMono NF, JetBrainsMono Nerd Font Mono, Cascadia Code",
                 "size": 11,
                 "weight": "extra-black"
             },

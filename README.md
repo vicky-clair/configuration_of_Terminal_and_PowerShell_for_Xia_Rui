@@ -81,9 +81,11 @@ powershelldome/
 ├── Install-Cmd.ps1                  # CMD Clink + Starship 现代化独立安装配置
 ├── Install-NuShell.ps1              # NuShell 现代化独立安装与美化配置
 ├── Install-MSYS2.ps1                # MSYS2 独立安装与 PATH 继承美化配置
+├── Install-Fonts.ps1                # 本地离线字体极速安装脚本 (直接将 fonts/ 注册至系统)
 ├── Restore-All.ps1                  # 配置恢复脚本 (带救援快照，支持 -WhatIf 预演)
 ├── Deploy-TerminalConfiguration.ps1 # 生产部署同步脚本 (Windows Terminal + PS7 + CMD)
 ├── Restore-TerminalConfiguration.ps1# 部署专用委托回退脚本 (绑定 .deployment-path)
+├── fonts/                           # 内置 JetBrainsMono Nerd Font 完整离线字体包 (NFM/NF/NFP)
 ├── scripts/
 │   ├── TerminalState.ps1            # 快照、救援备份、单文件替换与路径解析
 │   ├── TerminalSetupCommon.ps1      # 跨平台稳态底层库 (三级容错、失败校验、主题分发)

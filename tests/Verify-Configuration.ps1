@@ -1,4 +1,4 @@
-﻿# ============================================================================
+# ============================================================================
 # 配置静态与语法回归测试套件 (可在独立子进程中执行)
 # 执行方法: pwsh -NoProfile -File .\tests\Verify-Configuration.ps1
 # ============================================================================
@@ -53,6 +53,7 @@ $installerScripts = @(
     'Install-Cmd.ps1',
     'Install-NuShell.ps1',
     'Install-MSYS2.ps1',
+    'Install-Fonts.ps1',
     'Install-All.ps1',
     'Restore-All.ps1',
     'Restore-TerminalConfiguration.ps1',

@@ -1,4 +1,4 @@
-﻿. (Join-Path $PSScriptRoot 'TerminalState.ps1')
+. (Join-Path $PSScriptRoot 'TerminalState.ps1')
 
 # ============================================================================
 # Terminal Setup Common Library (跨操作系统 Win11/10/8.1 兼容性与环境准备)
@@ -220,6 +220,22 @@ function Install-ScoopAppsIfMissing {
         }
 
         if ($installed -notcontains $baseName) {
+            # 优先检测并使用项目内置 fonts/ 离线字体包
+            if ($app -match 'nerd-fonts' -or $app -match 'JetBrainsMono') {
+                $projectFontsDir = Join-Path $projectRoot 'fonts'
+                if (Test-Path -LiteralPath $projectFontsDir) {
+                    $localTtf = @(Get-ChildItem -LiteralPath $projectFontsDir -Filter '*.ttf')
+                    if ($localTtf.Count -gt 0) {
+                        Write-Host "[*] 检测到项目内置 JetBrainsMono 字体包 ($($localTtf.Count) 个)，正在执行极速本地安装与注册..." -ForegroundColor Cyan
+                        $installer = Join-Path $projectRoot 'Install-Fonts.ps1'
+                        if (Test-Path -LiteralPath $installer) {
+                            & $installer
+                            continue
+                        }
+                    }
+                }
+            }
+
             Write-Host "[*] 正在安装 Scoop 应用: $app..." -ForegroundColor Yellow
             $scoopSuccess = $false
             try {
