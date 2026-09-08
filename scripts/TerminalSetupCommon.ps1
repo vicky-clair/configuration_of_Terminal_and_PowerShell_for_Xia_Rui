@@ -255,7 +255,7 @@ function Install-ScoopAppsIfMissing {
                 }
             }
             if (-not $scoopSuccess) {
-                if ($app -match 'nerd-fonts') {
+                if ($app -match 'nerd-fonts' -or $app -match 'JetBrainsMono') {
                     Write-Host "[*] Scoop 字体仓库未就绪，正在尝试通过高速镜像直接下载并注册 JetBrainsMono 图标字体..." -ForegroundColor Cyan
                     try {
                         $zipUrl = "https://gh-proxy.com/https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.zip"
@@ -281,10 +281,10 @@ function Install-ScoopAppsIfMissing {
                 throw "Unable to install required application: $app"
             }
             Refresh-SessionPath
-            if ($app -notmatch 'nerd-fonts' -and -not (Test-SetupAppReady $commandName $PathCheck)) { throw "Installed app is not executable: $commandName" }
+            if ($app -notmatch 'nerd-fonts' -and $app -notmatch 'JetBrainsMono' -and -not (Test-SetupAppReady $commandName $PathCheck)) { throw "Installed app is not executable: $commandName" }
         } else {
             Refresh-SessionPath
-            if ($app -notmatch 'nerd-fonts' -and -not (Test-SetupAppReady $commandName $PathCheck)) {
+            if ($app -notmatch 'nerd-fonts' -and $app -notmatch 'JetBrainsMono' -and -not (Test-SetupAppReady $commandName $PathCheck)) {
                 throw "Scoop lists $app as installed, but $commandName is not executable after refreshing PATH. Repair the installation or its shims before retrying."
             }
             Write-Host "[OK] 应用已安装: $app" -ForegroundColor DarkGray
@@ -314,6 +314,15 @@ function Install-PSModulesIfMissing {
             Install-Module -Name $mod -RequiredVersion $version -Repository PSGallery -Scope CurrentUser -Force -Confirm:$false -ErrorAction Stop
             if (-not @(Get-Module -ListAvailable -Name $mod | Where-Object Version -eq ([version]$version)).Count) { throw "Module installation failed: $mod" }
         }
+        # 自动解除新安装或已有模块的 Mark of the Web (Zone.Identifier) 锁定，避免提示不可信发布者
+        $installed = Get-Module -ListAvailable -Name $mod | Where-Object Version -eq ([version]$version)
+        foreach ($m in $installed) {
+            if ($m.ModuleBase -and (Test-Path -LiteralPath $m.ModuleBase)) {
+                Get-ChildItem -Path $m.ModuleBase -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+                    Unblock-File -LiteralPath $_.FullName -ErrorAction SilentlyContinue
+                }
+            }
+        }
     }
 }
 
@@ -337,7 +346,32 @@ function Ensure-WindowsTerminalConfigured {
         $targetDir = Split-Path -Parent $target
         if (Test-Path $targetDir) {
             if ($Force -or (Test-Path $target)) {
-                Set-TerminalBytes $target ([IO.File]::ReadAllBytes($sourceSettings))
+                try {
+                    $json = [IO.File]::ReadAllText($sourceSettings) | ConvertFrom-Json
+                    if ($json.profiles -and $json.profiles.list) {
+                        $hasNu = [bool](Get-Command 'nu' -ErrorAction SilentlyContinue)
+                        foreach ($p in $json.profiles.list) {
+                            # 若未安装 NuShell，将 NuShell 标签暂时隐藏，避免点击报错 0x80070002
+                            if ($p.commandline -like '*nu.exe*' -or $p.name -eq 'NuShell') {
+                                if (-not $hasNu) {
+                                    $p | Add-Member -NotePropertyName hidden -NotePropertyValue $true -Force
+                                }
+                            }
+                            # 若未检测到 MSYS2 安装路径，隐藏对应 MSYS2 预设标签
+                            if ($p.commandline -like '*msys2_shell.cmd*') {
+                                if ($p.commandline -match '^\s*"?([^" ]+msys2_shell\.cmd)"?') {
+                                    $cmdPath = $Matches[1]
+                                    if (-not (Test-Path -LiteralPath $cmdPath)) {
+                                        $p | Add-Member -NotePropertyName hidden -NotePropertyValue $true -Force
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Set-TerminalText $target ($json | ConvertTo-Json -Depth 100)
+                } catch {
+                    Set-TerminalBytes $target ([IO.File]::ReadAllBytes($sourceSettings))
+                }
                 Write-Host "[OK] Windows Terminal 深度美化配置 (亚克力磨砂/Catppuccin配色/JetBrainsMono字体) 已部署至: $target" -ForegroundColor Green
             }
         }
@@ -371,7 +405,13 @@ function Register-TerminalShellProfile {
                 }
                 $base=[IO.Path]::GetFileName($exe.Replace('/','\'))
                 if ($Shell -eq 'NuShell') {
-                    if ($base -in @('nu','nu.exe') -or $profile.guid -eq $nuGuid) { $found=$true }
+                    if ($base -in @('nu','nu.exe') -or $profile.guid -eq $nuGuid) {
+                        $found=$true
+                        if ($profile.PSObject.Properties['hidden'] -and $profile.hidden -eq $true) {
+                            $profile.hidden=$false
+                            $changed=$true
+                        }
+                    }
                 } elseif ($base -eq 'msys2_shell.cmd') {
                     if ($profile.guid -in $msysGuids) {
                         # Only the executable changes; keep shell flags, names, icons and appearance.

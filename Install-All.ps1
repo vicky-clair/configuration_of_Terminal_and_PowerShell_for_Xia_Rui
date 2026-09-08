@@ -34,6 +34,18 @@ Write-Host "============================================================" -Foreg
 Write-Host "[+] 开始执行 Windows 全终端现代化与美化一键集成部署" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 
+# 自动解除 PowerShell 脚本执行策略限制 (针对当前用户设为 RemoteSigned 并持久化至注册表)
+try {
+    $policy = Get-ExecutionPolicy -Scope CurrentUser -ErrorAction SilentlyContinue
+    if ($policy -in @('Restricted', 'Undefined')) {
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
+        Write-Host "[OK] 当前用户执行策略已配置: RemoteSigned" -ForegroundColor Green
+    }
+    $regPath = 'HKCU:\Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell'
+    if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+    Set-ItemProperty -Path $regPath -Name 'ExecutionPolicy' -Value 'RemoteSigned' -Force -ErrorAction SilentlyContinue
+} catch {}
+
 # 全自动前置统合备份：捕获当前所有终端配置，支持一键无损回退
 $components=@('Shared')
 if (-not $SkipPowerShell7) { $components += @('PowerShell7','Terminal') }

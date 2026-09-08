@@ -104,6 +104,32 @@
   ```
   脚本会自动将实际存在的物理路径（如 `D:\Tools\msys64\msys2_shell.cmd`）写入 Terminal 配置中。
 
+### Q4: 启动 Windows Terminal 弹窗提示“找不到所选字体 'JetBrainsMono Nerd Font Mono'”？
+**答：这是字体尚未安装注册或网络中断导致。**
+- **自愈解决**：安装脚本现已内置 CDN 直连兜底，会自动从高速镜像下载 `JetBrainsMono.zip` 并解压注册到 `HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts`。
+- **手动安装**：若需手动安装，前往 [Nerd Fonts 官方发布页](https://github.com/ryanoasis/nerd-fonts/releases) 下载 `JetBrainsMono.zip`，解压所有 `.ttf` 文件，全选并右键选择 **“为所有用户安装”** 即可。
+
+### Q5: 打开 NuShell 标签或启动时提示错误 `[出现错误 2147942402 (0x80070002) (启动“nu.exe”时)]`？
+**答：这是因为尚未安装 NuShell 核心程序。**
+- **根因**：`.\Install-All.ps1` 默认安装 PowerShell 7、Windows PowerShell 5.1 与 CMD 核心环境。若未添加 `-All` 或 `-IncludeNuShell` 参数，NuShell 不会被自动安装。
+- **动态自愈**：最新版本部署逻辑会在写入 Windows Terminal 设置时自动检测，若未检测到 `nu.exe`，会自动将该标签设为 `"hidden": true` 隐藏，避免误点报错。
+- **一键安装**：若您希望体验 NuShell，只需在终端中运行：
+  ```powershell
+  pwsh -File .\Install-NuShell.ps1
+  # 或重新运行带 -All 的总装脚本：
+  # pwsh -File .\Install-All.ps1 -All
+  ```
+  安装完成后，Windows Terminal 将自动解除隐藏并激活 NuShell 入口。
+
+### Q6: 终端提示“因为在此系统上禁止运行脚本”或“是否要运行来自此不可信发布者的软件?”？
+**答：这是 Windows 系统的执行策略与 Mark of the Web (Zone.Identifier) 机制所致。**
+- **自愈解决**：最新版安装脚本在执行时会自动将 `CurrentUser` 脚本执行策略调整为 `RemoteSigned` 并写入注册表，且自动对 `Modules` 目录执行 `Unblock-File`。
+- **手动放行命令**：
+  ```powershell
+  Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+  Get-ChildItem -Path "$HOME\Documents\WindowsPowerShell\Modules" -Recurse | Unblock-File
+  ```
+
 ---
 
 ## ⚡ 常用命令与操作速查
@@ -179,15 +205,19 @@ pwsh -NoProfile -File .\Deploy-TerminalConfiguration.ps1
 | [`Install-MSYS2.ps1`](file:///c:/XMWJJ/powershelldome/Install-MSYS2.ps1) | **MSYS2 (bash)** | 定位或自动安装 MSYS2；**配置 `MSYS2_PATH_TYPE=inherit` 继承 Windows 本机环境变量**，可在 MSYS2 中直接调用 Windows 原生安装的工具；配置 `~/.bashrc` 强制 UTF-8、Starship 提示符、Fastfetch 横幅与别名；**自动检查并向 Windows Terminal 注册配置项（支持 `-Msys2InstallPath`）**。 |
 | [`Install-All.ps1`](file:///c:/XMWJJ/powershelldome/Install-All.ps1) | **全终端总装** | 一键按序安装配置上述终端环境，支持 `-IncludeNuShell`、`-IncludeMSYS2` 或 `-All` 安装全部 5 种终端。 |
 
-#### 包管理器容错降级策略（Choco -> WinGet 仓库自动配置 -> Scoop）
-脚本内置通用容错函数 `Install-AppWithChocoWingetFallback`：
-1. **已就绪检测**：优先检查命令是否已经在 PATH 或对应路径中就绪，避免重复下载。
-2. **第一梯队 (Chocolatey)**：若检测到系统已安装 `choco`，执行安装；若发生失败，**自动重试 2 次**。
+#### 包管理器容错降级与自愈机制（Choco ➜ WinGet ➜ Scoop ➜ CDN 直连）
+脚本内置通用容错函数 `Install-AppWithChocoWingetFallback` 与自愈控制：
+1. **已就绪检测**：优先检查命令是否已经在 PATH 或对应路径中就绪，避免重复下载；
+2. **第一梯队 (Chocolatey)**：若检测到系统已安装 `choco`，执行安装；若发生失败，**自动重试 2 次**；
 3. **第二梯队 (WinGet 自动配置与安装)**：若未检测到 `choco` 或 2 次尝试均失败，自动进入 WinGet 流程：
    - 自动检测并补全 `winget.exe` 路径（含 `WindowsApps` 检索）；
    - **自动检查与配置 WinGet 软件源仓库**：若源异常或为空，自动执行 `winget source reset --force` 与 `winget source update` 修复并同步官方仓库源；
-   - 执行静默安装 `winget install --id ... --exact --silent`。
-4. **第三梯队 (Scoop 终极保底)**：若 WinGet 仍不可用（例如在 Windows 8.1 或精简系统上），自动调用 Scoop 仓库进行终极保底安装。
+   - 执行静默安装 `winget install --id ... --exact --silent`；
+4. **第三梯队 (Scoop 终极保底与镜像自愈)**：若 WinGet 仍不可用，自动调用 Scoop 仓库进行保底安装：
+   - 支持网络断流自愈、空 bucket 破损自动识别修复与高速镜像自动重试；
+   - 兼容 `scoop list` 零应用时的流 6 与状态码 1 退出逻辑；
+5. **第四梯队 (字体 CDN 直连下载兜底)**：字体包通过高速镜像直链下载并注册到当前用户字体库，确保 Windows Terminal 零字体缺失弹窗；
+6. **环境自愈**：全自动配置 `RemoteSigned` 策略并批量执行 `Unblock-File` 解除 Mark of the Web 锁定。
 
 #### 运行方式：
 

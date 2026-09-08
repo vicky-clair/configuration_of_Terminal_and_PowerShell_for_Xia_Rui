@@ -100,9 +100,16 @@ try {
         Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
         Write-Host "[OK] 已将当前用户 PowerShell 脚本执行策略配置为: RemoteSigned" -ForegroundColor Green
     }
+    # 针对 Windows PowerShell 5.1 注册表项进行持久化确保
+    $regPath = 'HKCU:\Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell'
+    if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+    Set-ItemProperty -Path $regPath -Name 'ExecutionPolicy' -Value 'RemoteSigned' -Force -ErrorAction SilentlyContinue
+
     $modulesDir = Join-Path (Get-TerminalDocumentsPath) 'WindowsPowerShell/Modules'
     if (Test-Path $modulesDir) {
-        Unblock-File -Path "$modulesDir/*" -Recurse -ErrorAction SilentlyContinue
+        Get-ChildItem -LiteralPath $modulesDir -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+            Unblock-File -LiteralPath $_.FullName -ErrorAction SilentlyContinue
+        }
     }
     Unblock-File -LiteralPath $winPsProfileTarget -ErrorAction SilentlyContinue
 } catch {}

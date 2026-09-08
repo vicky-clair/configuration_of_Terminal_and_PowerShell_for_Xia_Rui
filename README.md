@@ -202,6 +202,41 @@ powershell.exe -File .\Restore-All.ps1
 
 ---
 
+## 🛠️ 安装故障排查与自愈自适应机制 (Troubleshooting & Self-Healing)
+
+针对跨网络环境（如国内直连/代理）、不同 Windows 系统版本（Windows 10 19045 / Windows 11 / Windows 8.1）以及初始系统环境的各种常见报错，本项目各安装脚本已全面升级为**全自动自愈与安全容错体系**：
+
+### 1. 常见错误场景、根因与全自动自愈方案
+
+| 故障现象 / 报错信息 | 故障根因分析 | 脚本自愈与自动化修复措施 | 手动应急命令 / 备用操作 |
+| :--- | :--- | :--- | :--- |
+| **`fatal: unable to access ... Recv failure: Connection was reset`** | 国内网络连接 GitHub 异常重置，导致 Scoop bucket 添加失败。 | `Ensure-ScoopBuckets` 内置高速镜像自愈链（自动重试 `gh-proxy.com` 与 Gitee 镜像仓库）。 | 若有本地科学上网代理（如端口 7890/10809）：<br>`scoop config proxy 127.0.0.1:7890`<br>`git config --global http.proxy http://127.0.0.1:7890` |
+| **`git pull ... Failed to connect to github.com:443 over proxy 127.0.0.1`** | 本地曾配置代理但代理软件已关闭或端口变更。 | 属于 Git 客户端全局网络配置残留。 | 执行清理全局代理：<br>`git config --global --unset http.proxy`<br>`git config --global --unset https.proxy`<br>`scoop config rm proxy` |
+| **`There aren't any apps installed. Scoop list failed.`** | Scoop 在未安装任何应用时以状态码 1 退出并在信息流 6 输出提示，触发 Stop 策略。 | `TerminalSetupCommon.ps1` 现已重定向流 `6>&1` 并接纳退出码 1，优雅视为空状态平滑继续。 | 已自动化处理，无需人工干预。 |
+| **`Couldn't find manifest for 'JetBrainsMono-NF' from 'nerd-fonts' bucket`** | 网络中断导致 bucket 目录损坏，或仓库清单未拉取全。 | 脚本自动检测并清理空 bucket 重新拉取；若仍无法通过 Scoop 获取，**自动启动高速 CDN 直链下载并注入当前用户字体注册表**。 | 手动下载字体解压缩后右键“为所有用户安装”：<br>[JetBrainsMono NF 官方下载](https://github.com/ryanoasis/nerd-fonts/releases) |
+| **Windows Terminal 启动弹窗：`找不到所选字体 'JetBrainsMono Nerd Font Mono'`** | 字体包因网络问题未就绪前启动了 Windows Terminal。 | 字体安装完成后，重启 Windows Terminal 即可自动识别。 | 安装脚本已集成 CDN 字体自愈下载；安装后新开 Terminal 即可。 |
+| **`因为在此系统上禁止运行脚本。有关详细信息，请参阅...`** | Windows 默认 PowerShell 脚本执行策略为 `Restricted`。 | `Install-All.ps1` 与各独立脚本在启动时**全自动检测并将当前用户 (`CurrentUser`) 策略提升为 `RemoteSigned`**，并持久化写入注册表。 | 手动放行命令：<br>`Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force` |
+| **`是否要运行来自此不可信发布者的软件? 文件 ... PSReadLine.format.ps1xml`** | 模块下载文件携带 Windows Mark of the Web (Zone.Identifier) 锁定标志。 | 脚本在安装模块与生成 Profile 后，**全自动递归调用 `Unblock-File` 解除锁定**。 | 手动解除命令：<br>`Get-ChildItem -Path "$HOME\Documents\WindowsPowerShell\Modules" -Recurse \| Unblock-File` |
+| **`[出现错误 2147942402 (0x80070002) (启动“nu.exe”时)] 系统找不到指定的文件`** | 仅运行了默认 `Install-All.ps1`（未加 `-All`），未安装 NuShell，但 Terminal 配置中包含该标签。 | `Ensure-WindowsTerminalConfigured` 现已实现**动态 Profile 探测**，对系统中未安装的 Shell 自动标记 `"hidden": true`，避免误点报错。 | 若需一键安装 NuShell 与 MSYS2：<br>`pwsh -File .\Install-All.ps1 -All`<br>脚本会自动安装并解除隐藏。 |
+
+### 2. 跨网络环境代理最佳实践建议
+
+若您在中国大陆网络环境下部署本套件，推荐配合本地代理软件获得数倍下载提速：
+
+```powershell
+# 1. 开启代理（端口请根据代理软件实际端口修改，常见为 7890 或 10809）
+scoop config proxy 127.0.0.1:7890
+git config --global http.proxy http://127.0.0.1:7890
+git config --global https.proxy http://127.0.0.1:7890
+
+# 2. 部署完毕后，若关闭了代理软件，请务必还原清理，避免后续 git pull 失败：
+scoop config rm proxy
+git config --global --unset http.proxy
+git config --global --unset https.proxy
+```
+
+---
+
 ## 🧩 常用快捷键与命令速查
 
 | 操作场景 | 推荐命令 / 快捷键 | 适用终端 | 说明 |
