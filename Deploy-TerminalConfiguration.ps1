@@ -48,6 +48,7 @@ try {
     if (-not $SkipCmd) {
         & (Join-Path $PSScriptRoot 'cmd/Install-CmdConfiguration.ps1') -SkipBackup
     }
+    Ensure-FastfetchConfigured
 } catch {
     throw "部署未完整完成，请通过以下快照执行回退: $snapshot。异常信息: $($_.Exception.Message)"
 }
