@@ -87,7 +87,18 @@ function Ensure-ScoopBuckets {
         )
     }
     foreach ($b in $Buckets) {
-        if ($installedBuckets -notcontains $b) {
+        $scoopRoot = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $env:USERPROFILE 'scoop' }
+        $bucketDir = Join-Path $scoopRoot "buckets\$b"
+        $isCorruptBucket = $false
+        if (Test-Path $bucketDir) {
+            $hasManifests = [bool](Get-ChildItem -Path $bucketDir -Filter "*.json" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1)
+            if (-not $hasManifests) {
+                Write-Host "[!] 检测到 Scoop 仓库 $b 内容为空或已损坏，正在重置重建..." -ForegroundColor Yellow
+                & scoop bucket rm $b 2>$null | Out-Null
+                $isCorruptBucket = $true
+            }
+        }
+        if ($installedBuckets -notcontains $b -or $isCorruptBucket) {
             if ($b -eq 'nerd-fonts') {
                 $fontMatches = @(Get-ChildItem -Path "$env:LOCALAPPDATA\Microsoft\Windows\Fonts", "$env:WINDIR\Fonts" -Filter "*JetBrains*" -ErrorAction SilentlyContinue)
                 if ($fontMatches.Count -gt 0) {
@@ -243,7 +254,13 @@ function Install-ScoopAppsIfMissing {
                     }
                 }
             }
-            if (-not $scoopSuccess) { throw "Unable to install required application: $app" }
+            if (-not $scoopSuccess) {
+                if ($app -match 'nerd-fonts') {
+                    Write-Warning "[!] 图标字体 $baseName 自动安装受阻，已跳过字体安装（不影响终端环境和美化功能，稍后可手动安装字体）。"
+                    continue
+                }
+                throw "Unable to install required application: $app"
+            }
             Refresh-SessionPath
             if ($app -notmatch 'nerd-fonts' -and -not (Test-SetupAppReady $commandName $PathCheck)) { throw "Installed app is not executable: $commandName" }
         } else {
