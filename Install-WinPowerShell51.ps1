@@ -93,5 +93,19 @@ $winPsContent = $header + $sourceContent
 
 Set-TerminalText $winPsProfileTarget $winPsContent -Bom
 
+# 6. 配置当前用户脚本执行策略与解除安全锁定，确保新 Profile 能够顺畅加载
+try {
+    $policy = Get-ExecutionPolicy -Scope CurrentUser -ErrorAction SilentlyContinue
+    if ($policy -in @('Restricted', 'Undefined')) {
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
+        Write-Host "[OK] 已将当前用户 PowerShell 脚本执行策略配置为: RemoteSigned" -ForegroundColor Green
+    }
+    $modulesDir = Join-Path (Get-TerminalDocumentsPath) 'WindowsPowerShell/Modules'
+    if (Test-Path $modulesDir) {
+        Unblock-File -Path "$modulesDir/*" -Recurse -ErrorAction SilentlyContinue
+    }
+    Unblock-File -LiteralPath $winPsProfileTarget -ErrorAction SilentlyContinue
+} catch {}
+
 Write-Host "[OK] Windows PowerShell 5.1 Profile 已成功安装至: $winPsProfileTarget" -ForegroundColor Green
 Write-Host "`n[+] 安装成功！请打开 powershell.exe 查看全新终端效果。" -ForegroundColor Cyan

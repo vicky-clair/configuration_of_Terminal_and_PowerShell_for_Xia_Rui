@@ -256,8 +256,27 @@ function Install-ScoopAppsIfMissing {
             }
             if (-not $scoopSuccess) {
                 if ($app -match 'nerd-fonts') {
-                    Write-Warning "[!] 图标字体 $baseName 自动安装受阻，已跳过字体安装（不影响终端环境和美化功能，稍后可手动安装字体）。"
-                    continue
+                    Write-Host "[*] Scoop 字体仓库未就绪，正在尝试通过高速镜像直接下载并注册 JetBrainsMono 图标字体..." -ForegroundColor Cyan
+                    try {
+                        $zipUrl = "https://gh-proxy.com/https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.zip"
+                        $tmpZip = Join-Path ([IO.Path]::GetTempPath()) ('JetBrainsMono-' + [guid]::NewGuid().ToString('N') + '.zip')
+                        $tmpDir = Join-Path ([IO.Path]::GetTempPath()) ('JetBrainsMono-' + [guid]::NewGuid().ToString('N'))
+                        Invoke-WebRequest -Uri $zipUrl -OutFile $tmpZip -UseBasicParsing -TimeoutSec 60 -ErrorAction Stop
+                        Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force -ErrorAction Stop
+                        $fontDir = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+                        New-Item -ItemType Directory -Path $fontDir -Force -ErrorAction SilentlyContinue | Out-Null
+                        $regKey = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
+                        Get-ChildItem $tmpDir -Filter "*NerdFont*.ttf" | ForEach-Object {
+                            Copy-Item $_.FullName -Destination $fontDir -Force
+                            New-ItemProperty -Path $regKey -Name "$($_.BaseName) (TrueType)" -Value "$fontDir\$($_.Name)" -Force -ErrorAction SilentlyContinue | Out-Null
+                        }
+                        Remove-Item $tmpZip, $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
+                        Write-Host "[OK] JetBrainsMono Nerd Font 图标字体已成功安装并注册！" -ForegroundColor Green
+                        continue
+                    } catch {
+                        Write-Warning "[!] 图标字体自动下载遇阻: $_（稍后可手动安装字体包，不影响终端使用）"
+                        continue
+                    }
                 }
                 throw "Unable to install required application: $app"
             }

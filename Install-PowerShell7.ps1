@@ -145,4 +145,17 @@ if ((Test-Path $wtStableDir) -or (Test-Path $wtPreviewDir)) {
     }
 }
 
+# 9. 配置当前用户脚本执行策略与解除安全锁定
+try {
+    $policy = Get-ExecutionPolicy -Scope CurrentUser -ErrorAction SilentlyContinue
+    if ($policy -in @('Restricted', 'Undefined')) {
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
+        Write-Host "[OK] 已将当前用户 PowerShell 脚本执行策略配置为: RemoteSigned" -ForegroundColor Green
+    }
+    $ps7Profile = Join-Path (Get-TerminalDocumentsPath) 'PowerShell/Microsoft.PowerShell_profile.ps1'
+    if (Test-Path -LiteralPath $ps7Profile) {
+        Unblock-File -LiteralPath $ps7Profile -ErrorAction SilentlyContinue
+    }
+} catch {}
+
 Write-Host "`n[+] 安装成功！请新开一个 pwsh 窗口体验全新终端。" -ForegroundColor Cyan
