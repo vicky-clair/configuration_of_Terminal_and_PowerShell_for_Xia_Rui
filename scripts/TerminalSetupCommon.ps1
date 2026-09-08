@@ -150,9 +150,10 @@ function Install-ScoopAppsIfMissing {
     param([string[]]$Apps, [string[]]$PathCheck)
     if ($PathCheck -and $Apps.Count -ne 1) { throw 'Path verification requires exactly one application.' }
     Ensure-ScoopInstalled
-    $listOutput = & scoop list
+    $listOutput = & scoop list 6>&1 2>$null
     $listText = ($listOutput -join "`n")
-    if ($LASTEXITCODE -ne 0 -and $listText -notmatch "There aren't any apps installed") {
+    # Scoop 在未安装任何软件时会执行 exit 1 并输出 There aren't any apps installed. 这是正常的空列表状态
+    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 1 -and $listText -notmatch "There aren't any apps installed") {
         throw 'Scoop list failed.'
     }
     $installed = @()
