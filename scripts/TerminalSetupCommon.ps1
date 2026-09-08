@@ -73,14 +73,61 @@ function Ensure-ScoopBuckets {
             $_.Trim()
         }
     })
+    $knownMirrors = @{
+        'nerd-fonts' = @(
+            'https://gh-proxy.com/https://github.com/matthewjberger/scoop-nerd-fonts',
+            'https://gitee.com/kkzzhizhou/scoop-nerd-fonts'
+        )
+        'extras'     = @(
+            'https://gh-proxy.com/https://github.com/ScoopInstaller/Extras',
+            'https://gitee.com/scoop-bucket/extras'
+        )
+        'versions'   = @(
+            'https://gh-proxy.com/https://github.com/ScoopInstaller/Versions'
+        )
+    }
     foreach ($b in $Buckets) {
         if ($installedBuckets -notcontains $b) {
+            if ($b -eq 'nerd-fonts') {
+                $fontMatches = @(Get-ChildItem -Path "$env:LOCALAPPDATA\Microsoft\Windows\Fonts", "$env:WINDIR\Fonts" -Filter "*JetBrains*" -ErrorAction SilentlyContinue)
+                if ($fontMatches.Count -gt 0) {
+                    Write-Host "[OK] 系统中已检测到 JetBrains Mono 图标字体，跳过 nerd-fonts 仓库添加" -ForegroundColor DarkGray
+                    continue
+                }
+            }
             Write-Host "[*] 正在添加 Scoop 仓库: $b..." -ForegroundColor Yellow
+            $bucketAdded = $false
             try {
                 & scoop bucket add $b 2>$null | Out-Host
-                if ($LASTEXITCODE -ne 0) { throw "Scoop bucket add failed: $b" }
-            } catch {
-                throw "Cannot add Scoop bucket $b`: $_"
+                if ($LASTEXITCODE -eq 0) { $bucketAdded = $true }
+            } catch {}
+
+            if (-not $bucketAdded -and $knownMirrors.ContainsKey($b)) {
+                foreach ($mirrorUrl in $knownMirrors[$b]) {
+                    Write-Host "[*] 官方源连接受阻，尝试加速镜像添加 $b ($mirrorUrl)..." -ForegroundColor Cyan
+                    try {
+                        & scoop bucket add $b $mirrorUrl 2>$null | Out-Host
+                        if ($LASTEXITCODE -eq 0) {
+                            $bucketAdded = $true
+                            Write-Host "[OK] Scoop 仓库 $b 通过镜像添加成功！" -ForegroundColor Green
+                            break
+                        }
+                    } catch {}
+                }
+            }
+
+            if (-not $bucketAdded) {
+                if ($b -eq 'nerd-fonts') {
+                    $fontMatches = @(Get-ChildItem -Path "$env:LOCALAPPDATA\Microsoft\Windows\Fonts", "$env:WINDIR\Fonts" -Filter "*JetBrains*" -ErrorAction SilentlyContinue)
+                    if ($fontMatches.Count -gt 0) {
+                        Write-Warning "[!] nerd-fonts 仓库添加失败，但检测到系统中已有 JetBrains 图标字体，跳过该仓库。"
+                        continue
+                    }
+                    Write-Warning "[!] 添加 nerd-fonts 仓库失败（国内直连 GitHub 连接重置）。"
+                    Write-Warning "[!] 若您有代理软件（如 Clash/v2ray），请在终端配置: scoop config proxy 127.0.0.1:7890"
+                    Write-Warning "[!] 或手动通过镜像添加: scoop bucket add nerd-fonts https://gh-proxy.com/https://github.com/matthewjberger/scoop-nerd-fonts"
+                }
+                throw "Cannot add Scoop bucket $b. 网络连接受阻（GitHub 连接重置），请配置代理或镜像后重试。"
             }
         } else {
             Write-Host "[OK] Scoop 仓库已添加: $b" -ForegroundColor DarkGray
