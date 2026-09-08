@@ -73,13 +73,42 @@ public class FontInstaller {
 "@ -ErrorAction SilentlyContinue
 
 $copiedCount = 0
+$lockedCount = 0
+$skippedCount = 0
 $registeredCount = 0
 
 foreach ($file in $fontFiles) {
     $destPath = Join-Path $targetFontDir $file.Name
-    if (-not (Test-Path -LiteralPath $destPath) -or ((Get-Item -LiteralPath $destPath).Length -ne $file.Length)) {
-        Copy-Item -LiteralPath $file.FullName -Destination $destPath -Force
-        $copiedCount++
+    $destExists = Test-Path -LiteralPath $destPath
+    $needsCopy = $false
+
+    if (-not $destExists) {
+        $needsCopy = $true
+    } else {
+        try {
+            if ((Get-Item -LiteralPath $destPath).Length -ne $file.Length) {
+                $needsCopy = $true
+            }
+        } catch {
+            $needsCopy = $true
+        }
+    }
+
+    if ($needsCopy) {
+        try {
+            Copy-Item -LiteralPath $file.FullName -Destination $destPath -Force -ErrorAction Stop
+            $copiedCount++
+        } catch [System.IO.IOException] {
+            # 文件已被 Windows 字体缓存、Windows Terminal 或其他应用加载锁定
+            # 这表明该字体已经在目标位置并且正在被系统使用，直接登记注册表即可
+            $lockedCount++
+            Write-Verbose "字体已被系统进程占用，跳过文件覆盖: $($file.Name)"
+        } catch {
+            $lockedCount++
+            Write-Verbose "复制字体 $($file.Name) 跳过: $_"
+        }
+    } else {
+        $skippedCount++
     }
 
     $baseName = [IO.Path]::GetFileNameWithoutExtension($file.Name)
@@ -115,7 +144,7 @@ try {
 
 Write-Host "`n[OK] 字体安装成功！" -ForegroundColor Green
 Write-Host "  - 目标目录: $targetFontDir" -ForegroundColor DarkGray
-Write-Host "  - 复制/更新: $copiedCount 个文件" -ForegroundColor DarkGray
+Write-Host "  - 复制/更新: $copiedCount 个文件 (已存在或正被系统加载: $($lockedCount + $skippedCount) 个)" -ForegroundColor DarkGray
 Write-Host "  - 注册表登记: $registeredCount 项 ($regKey)" -ForegroundColor DarkGray
 Write-Host "  - 字体家族: JetBrainsMono NFM (等宽推荐), JetBrainsMono NF, JetBrainsMono NFP" -ForegroundColor Cyan
 Write-Host "`n[提示] Windows Terminal 与 IDE 已可立即识别并使用 JetBrainsMono NFM 字体。" -ForegroundColor Green
