@@ -375,8 +375,8 @@ function Ensure-WindowsTerminalConfigured {
                             }
                             # 若未检测到 MSYS2 安装路径，隐藏对应 MSYS2 预设标签
                             if ($p.commandline -like '*msys2_shell.cmd*') {
-                                if ($p.commandline -match '^\s*"?([^" ]+msys2_shell\.cmd)"?') {
-                                    $cmdPath = $Matches[1]
+                                if ([string]$p.commandline -match '^\s*(?:"(?<exe>[^"]+)"|(?<exe>\S+))') {
+                                    $cmdPath = [Environment]::ExpandEnvironmentVariables($Matches.exe)
                                     if (-not (Test-Path -LiteralPath $cmdPath)) {
                                         $p | Add-Member -NotePropertyName hidden -NotePropertyValue $true -Force
                                     }
@@ -430,17 +430,19 @@ function Register-TerminalShellProfile {
                     }
                 } elseif ($base -eq 'msys2_shell.cmd') {
                     $matchesMsys=$false
+                    $expandedExe=[Environment]::ExpandEnvironmentVariables($exe).Replace('/','\')
+                    if ([IO.Path]::IsPathRooted($expandedExe)) { $expandedExe=[IO.Path]::GetFullPath($expandedExe) }
                     if ($profile.guid -in $msysGuids) {
-                        # Repair the executable and visibility; keep shell flags, names, icons and appearance.
+                        # 修复可执行程序路径与菜单可见性，保留原有的启动参数、名称、图标和外观。
                         $command='"'+$msysCommand+'"'+$arguments
                         if ($profile.commandline -cne $command) { $profile.commandline=$command; $changed=$true }
                         $found=$true
                         $matchesMsys=$true
-                    } elseif ([Environment]::ExpandEnvironmentVariables($exe).Replace('/','\') -eq $msysCommand) {
+                    } elseif ($expandedExe -eq $msysCommand) {
                         $found=$true
                         $matchesMsys=$true
                     }
-                    # Terminal setup may have hidden presets before the MSYS2 installation step.
+                    # 终端模板部署在 MSYS2 安装前可能已将预设隐藏，安装后需恢复显示。
                     if ($matchesMsys -and $profile.PSObject.Properties['hidden'] -and $profile.hidden -eq $true) {
                         $profile.hidden=$false
                         $changed=$true

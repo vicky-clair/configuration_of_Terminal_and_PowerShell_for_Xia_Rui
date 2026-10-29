@@ -55,7 +55,7 @@ try {
     $settings=[IO.File]::ReadAllText((Join-Path $projectRoot 'settings.json')) | ConvertFrom-Json
     $visualBefore=$settings.profiles.defaults | ConvertTo-Json -Depth 30 -Compress
     $settings.profiles.list=@($settings.profiles.list | Where-Object name -ne 'NuShell')
-    # Fresh installs hide these presets before MSYS2 is installed. Registration must reveal them later.
+    # 全新安装时若尚未安装 MSYS2 会先隐藏预设标签，后续注册步骤需恢复显示。
     foreach ($profile in $settings.profiles.list) {
         if ($profile.commandline -like '*msys2_shell.cmd*') { $profile.hidden=$true }
     }
@@ -120,15 +120,15 @@ function Get-Command {
     $manifest=Get-Content -LiteralPath (Join-Path $backup 'manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     Assert (@($manifest.Files | Where-Object Target -eq $bashrc).Count -eq 1) 'Custom MSYS2 file was not backed up.'
 
-    # Also reveal an existing custom-GUID entry for this installation, but leave other roots hidden.
-    $sameRoot=[pscustomobject]@{guid='{00000000-0000-0000-0000-000000000003}';name='Custom MSYS2';commandline=('"'+$expectedCommand+'" -ucrt64');hidden=$true;opacity=67}
+    # 对指向同一安装根目录的自定义 GUID 条目同样恢复显示，同时保持其他安装根目录的隐藏状态。
+    $sameRoot=[pscustomobject]@{guid='{00000000-0000-0000-0000-000000000003}';name='Custom MSYS2';commandline=('"'+$custom.Replace('\','/')+'/./msys2_shell.cmd" -ucrt64');hidden=$true;opacity=67}
     $otherRoot=[pscustomobject]@{guid='{00000000-0000-0000-0000-000000000004}';name='Other installation';commandline='"E:\Other\msys2_shell.cmd" -msys';hidden=$true}
     Set-TerminalText $wt (@{profiles=@{list=@($sameRoot,$otherRoot)}} | ConvertTo-Json -Depth 10)
     Register-TerminalShellProfile -Shell MSYS2 -Msys2InstallPath $custom
     $visibility=Get-Content -LiteralPath $wt -Raw -Encoding UTF8 | ConvertFrom-Json
     Assert ($visibility.profiles.list.Count -eq 2 -and $visibility.profiles.list[0].hidden -eq $false) 'Matching custom MSYS2 entry stayed hidden or was duplicated.'
     Assert ($visibility.profiles.list[0].opacity -eq 67 -and $visibility.profiles.list[1].hidden -eq $true) 'Visibility repair changed appearance or another MSYS2 installation.'
-    # Restore the original fixture for the remaining NuShell integration checks.
+    # 恢复初始测试配置，供后续 NuShell 集成校验继续使用。
     Set-TerminalText $wt ($settings | ConvertTo-Json -Depth 100)
 
     & (Join-Path $repo 'Install-NuShell.ps1') -NonInteractive
